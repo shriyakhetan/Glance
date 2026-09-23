@@ -1,0 +1,12 @@
+<svg width="32.8536" height="32.8536" viewBox="0 0 32.8536 32.8536" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Book Page">
+<path id="Vector 9900" d="M32.25 32.25H0.25L32.25 0.25V32.25Z" fill="#D9D9D9" fill-opacity="0.4"/>
+<path id="Vector 9901" d="M0.25 12.25V32.25L32.25 0.25H12.25C5.62258 0.25 0.25 5.62258 0.25 12.25Z" fill="white" fill-opacity="0.07" stroke="url(#paint0_linear_0_4)" stroke-width="0.5"/>
+</g>
+<defs>
+<linearGradient id="paint0_linear_0_4" x1="0.25" y1="0.25" x2="16.25" y2="16.25" gradientUnits="userSpaceOnUse">
+<stop stop-color="white" stop-opacity="0.5"/>
+<stop offset="1" stop-color="white" stop-opacity="0"/>
+</linearGradient>
+</defs>
+</svg>

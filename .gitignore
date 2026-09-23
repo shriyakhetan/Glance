@@ -1,0 +1,31 @@
+# macOS
+.DS_Store
+
+# Xcode — build products and per-user state
+build/
+DerivedData/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+xcuserdata/
+
+# Xcode — other derived files
+*.hmap
+*.ipa
+*.dSYM
+*.dSYM.zip
+*.moved-aside
+timeline.xctimeline
+playground.xcworkspace
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# CocoaPods / Carthage, if they ever arrive
+Pods/
+Carthage/Build/
+
+# Fastlane
+fastlane/report.xml
+fastlane/screenshots/**/*.png

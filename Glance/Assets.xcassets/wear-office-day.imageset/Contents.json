@@ -1,0 +1,6 @@
+{
+  "images" : [
+    { "filename" : "wear-office-day.png", "idiom" : "universal" }
+  ],
+  "info" : { "author" : "xcode", "version" : 1 }
+}

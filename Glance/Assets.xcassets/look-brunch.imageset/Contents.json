@@ -1,0 +1,6 @@
+{
+  "images" : [
+    { "filename" : "look-brunch.png", "idiom" : "universal" }
+  ],
+  "info" : { "author" : "xcode", "version" : 1 }
+}
