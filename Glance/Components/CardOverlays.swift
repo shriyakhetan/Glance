@@ -1,26 +1,30 @@
 import SwiftUI
 
-/// The heart the updated feed puts on nearly every card (28037:12124). Outlined
-/// on the artwork until it is tapped, then filled red.
+/// The heart the feed puts on nearly every card (28037:12124). Outlined on the
+/// artwork until it is tapped, then filled red.
 ///
 /// Each card owns its own state for now; a real build would hand this to the
-/// wishlist repository, which is why the toggle is kept behind a binding-free
+/// wishlist repository, which is why the toggle sits behind a binding-free
 /// initialiser rather than being wired to the model.
 struct WishlistButton: View {
-    /// How the button sits on what is behind it. `solid` fills white once liked,
-    /// as the feed comp draws it on photography; `glass` keeps the translucent
-    /// dark disc throughout, which is what the tip card asks for (27641:10006).
+    /// The disc behind the heart. Each card keeps the treatment its comp gives
+    /// the button.
     enum Tone {
-        case solid
+        /// Black at 60%, the V7 product and look cards (8:1603).
+        case scrim
+        /// Black at 28%, for photography that is already busy.
+        case light
+        /// Translucent material, what the tip card asks for (27641:10006).
+        /// Stays glass once liked; the red heart carries the state.
         case glass
     }
 
     var isOn: Bool = false
-    var tone: Tone = .solid
+    var tone: Tone = .scrim
 
     @State private var liked: Bool
 
-    init(isOn: Bool = false, tone: Tone = .solid) {
+    init(isOn: Bool = false, tone: Tone = .scrim) {
         self.isOn = isOn
         self.tone = tone
         _liked = State(initialValue: isOn)
@@ -34,21 +38,26 @@ struct WishlistButton: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(liked ? Color(hex: 0xFF3B30) : GlanceColor.textPrimary)
                 .frame(width: 32, height: 32)
-                .background {
-                    switch tone {
-                    case .solid:
-                        Circle().fill(liked ? .white : .black.opacity(0.28))
-                    case .glass:
-                        Circle()
-                            .fill(.black.opacity(0.2))
-                            .background(.ultraThinMaterial, in: Circle())
-                    }
-                }
+                .background { disc }
                 .contentShape(Circle())
                 .scaleEffect(liked ? 1.06 : 1)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(liked ? "Remove from wishlist" : "Save to wishlist")
+    }
+
+    @ViewBuilder
+    private var disc: some View {
+        switch tone {
+        case .glass:
+            Circle()
+                .fill(.black.opacity(0.2))
+                .background(.ultraThinMaterial, in: Circle())
+        case .scrim:
+            Circle().fill(liked ? .white : .black.opacity(0.6))
+        case .light:
+            Circle().fill(liked ? .white : .black.opacity(0.28))
+        }
     }
 }
 

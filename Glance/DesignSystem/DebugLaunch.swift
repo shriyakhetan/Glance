@@ -31,6 +31,12 @@ enum DebugLaunch {
         value(for: "--chat").flatMap(Int.init)
     }
 
+    /// `--gallery look` launches straight into a component's variant gallery
+    /// instead of Home.
+    static var gallery: String? {
+        value(for: "--gallery")
+    }
+
     private static func value(for flag: String) -> String? {
         let arguments = ProcessInfo.processInfo.arguments
         guard let index = arguments.firstIndex(of: flag), index + 1 < arguments.count else { return nil }
@@ -42,5 +48,6 @@ enum DebugLaunch {
     static var sheet: String? { nil }
     static var focus: String? { nil }
     static var chat: Int? { nil }
+    static var gallery: String? { nil }
     #endif
 }

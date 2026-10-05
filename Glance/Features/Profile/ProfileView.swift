@@ -5,6 +5,10 @@ struct ProfileView: View {
     private let profile: StyleProfile
 
     @Environment(\.dismiss) private var dismiss
+    /// Regular means the canvas is wider than the arch, which changes how the
+    /// hero glow has to be cropped. Slide Over reports compact, and there the
+    /// phone treatment is the right one.
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var name: String
     @State private var selectedVibes: Set<UUID> = []
     /// The analysis card whose call to action opened the assistant.
@@ -22,6 +26,10 @@ struct ProfileView: View {
     private let gutter = Space.xl
     /// The comp puts the arch's crown 180pt below the top of the frame.
     private let archTop: CGFloat = 180
+    /// Floors the tallest screen the app runs on — an iPad Pro 13" in portrait
+    /// is 1376pt, and the arch is clipped, so it has to reach past that or its
+    /// cropped bottom edge shows.
+    private let archHeight: CGFloat = 1600
 
     init(repository: ProfileRepository = MockProfileRepository()) {
         let profile = repository.profile()
@@ -74,6 +82,7 @@ struct ProfileView: View {
                 .padding(.top, Space.lg)
             }
             .padding(.bottom, 60)
+            .glanceContentColumn()
         }
         .task {
             try? await Task.sleep(for: .milliseconds(500))
@@ -104,13 +113,7 @@ struct ProfileView: View {
             // hundreds of points off the top of the screen. An overlay never
             // resizes its host.
             GlanceColor.bgBase
-                .overlay(alignment: .top) {
-                    ArchGlow(scroll: scrollOffset)
-                        // Tall enough to floor the visible screen; the comp's
-                        // full 3020 would only add blur cost off-screen.
-                        .frame(width: ArchGlow.width, height: 1200)
-                        .offset(y: archTop)
-                }
+                .overlay(alignment: .top) { arch }
                 .ignoresSafeArea()
         }
         // 693:181 — presented by hand so the scrim is the comp's black at 70%.
@@ -172,6 +175,7 @@ struct ProfileView: View {
                 )
                 // Anchored to the physical bottom, so it enters from the screen
                 // edge rather than from above the home indicator.
+                .glanceContentColumn()
                 .transition(.move(edge: .bottom))
             }
         }
@@ -212,6 +216,46 @@ struct ProfileView: View {
         withAnimation(Self.sheetMotion) { sheetTarget = nil }
     }
 
+    /// The hero's lit arch.
+    ///
+    /// `ArchGlow` is 640pt on purpose: wider than a phone, so its straight
+    /// sides fall outside the viewport and only the crown reads. A regular
+    /// width is wider than the arch itself, so those sides — and the seam where
+    /// the arch's `#0E0A19` fill meets `bgBase` — would be on show. There it is
+    /// cropped to the content column and the cut feathered, which is what a
+    /// phone gets for free by running the fill past its screen edges.
+    @ViewBuilder
+    private var arch: some View {
+        // Tall enough to floor the visible screen; the comp's full 3020 would
+        // only add blur cost off-screen.
+        let glow = ArchGlow(scroll: scrollOffset)
+            .frame(width: ArchGlow.width, height: archHeight)
+
+        if sizeClass == .regular {
+            glow
+                .frame(width: GlanceLayout.maxContentWidth)
+                .mask(archEdgeFade)
+                .offset(y: archTop)
+        } else {
+            glow.offset(y: archTop)
+        }
+    }
+
+    /// Opaque across the column, dissolving over the last 40pt either side.
+    private var archEdgeFade: some View {
+        let fade = 40 / GlanceLayout.maxContentWidth
+        return LinearGradient(
+            stops: [
+                .init(color: .clear, location: 0),
+                .init(color: .black, location: fade),
+                .init(color: .black, location: 1 - fade),
+                .init(color: .clear, location: 1)
+            ],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+    }
+
     private var topBar: some View {
         HStack(spacing: 0) {
             BarIconButton(systemName: "chevron.left", label: "Back") { dismiss() }
@@ -228,6 +272,9 @@ struct ProfileView: View {
         }
         .foregroundStyle(GlanceColor.textPrimary)
         .padding(.horizontal, Space.lg)
+        // Back button and title line up with the content column; the fading
+        // band behind them still runs the full width.
+        .glanceContentColumn()
         .fadingBarBackground()
     }
 

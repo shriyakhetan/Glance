@@ -68,6 +68,7 @@ struct ProductView: View {
                 }
                 // Clear the composer: chips + pill + the gap beneath them.
                 .padding(.bottom, AskGlanceBarMetrics.reservedHeight + 56)
+                .glanceContentColumn()
             }
             .scrollIndicators(.hidden)
             // Pinned, and the scroll view still draws behind it — so content
@@ -119,6 +120,8 @@ struct ProductView: View {
         }
         .foregroundStyle(GlanceColor.textPrimary)
         .padding(.horizontal, Space.lg)
+        // Bar items track the content column; the band behind stays full width.
+        .glanceContentColumn()
         .fadingBarBackground()
     }
 

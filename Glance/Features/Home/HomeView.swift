@@ -10,18 +10,23 @@ struct HomeView: View {
     @State private var didOpenDebugRoute = false
     @Namespace private var transition
 
-    /// 24pt between the two columns, matching the vertical rhythm, with 16pt
-    /// side gutters. The redrawn feed (28037:12124) is laid out on a 412pt frame
-    /// as 24 / 170 / 24 / 170 / 24, so both the gutter and the column gap are 24
-    /// and the columns take whatever is left — 165pt on a 402pt screen.
-    private let gutter: CGFloat = Space.xl
-    private let columnGap: CGFloat = Space.xl
+    /// Read from `GlanceLayout`, which also uses them to work out how many
+    /// columns fit and how wide each is — so the spacing drawn here and the
+    /// spacing those sums assume can't drift apart. 8 / 185 / 16 / 185 / 8 on a
+    /// 402pt phone.
+    private let gutter = GlanceLayout.feedGutter
+    private let columnGap = GlanceLayout.feedColumnGap
 
     /// Vertical rhythm between stacked cards. A tailed card is followed by half
     /// the gap: its tail already hangs into the space below the body, so a full
-    /// 24pt reads as a wider break than it does under a flat-bottomed card.
-    private let rowGap: CGFloat = Space.xl
-    private let rowGapAfterTail: CGFloat = Space.md
+    /// gap reads as a wider break than it does under a flat-bottomed card.
+    private let rowGap = GlanceLayout.feedRowGap
+    private var rowGapAfterTail: CGFloat { rowGap / 2 }
+
+    /// The greeting keeps its own inset and its own break above the cards; the
+    /// tighter spacing is for the mosaic, not the page.
+    private let headerInset: CGFloat = Space.xl
+    private let headerGap: CGFloat = Space.sm + Space.xl
 
     init(repository: FeedRepository = MockFeedRepository()) {
         self.header = repository.header()
@@ -68,30 +73,34 @@ struct HomeView: View {
                 // spacing, so a tailed card can tighten the one below it.
                 LazyVStack(alignment: .leading, spacing: 0) {
                     headerView
-                        .padding(.horizontal, gutter)
+                        .padding(.horizontal, headerInset)
                         .padding(.top, Space.xl)
-                        .padding(.bottom, Space.sm + rowGap)
+                        .padding(.bottom, headerGap)
 
-                    ForEach(Array(blocks.enumerated()), id: \.element.id) { index, block in
-                        Group {
-                            switch block {
-                            case .columns(let left, let right):
-                                HStack(alignment: .top, spacing: columnGap) {
-                                    column(left)
-                                    column(right)
-                                }
-                            case .wide(let item):
-                                view(for: item)
-                            }
-                        }
-                        .padding(.horizontal, gutter)
-                        .padding(.bottom, index == blocks.count - 1 ? 0 : gap(after: block))
-                        .id(index)
+                    if columnCount > 2 {
+                        masonry
+                    } else {
+                        authoredRows
                     }
                 }
                 // Clear the pinned composer; the comp lets the feed run
                 // under its graded band.
                 .padding(.bottom, AskGlanceBarMetrics.reservedHeight)
+                // Measured inside the width cap, not outside it: `columnCount`
+                // and `columnWidth` both divide the *content* width, so they
+                // have to see the capped grid and not the full screen. This
+                // `.background` must stay above the cap for that to hold.
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear
+                            .onAppear { contentWidth = geometry.size.width }
+                            .onChange(of: geometry.size.width) { _, width in contentWidth = width }
+                    }
+                }
+                // The feed earns more columns as it widens, so it takes the
+                // whole canvas rather than the single reading column the
+                // article-shaped screens use.
+                .glanceContentColumn(GlanceLayout.maxFeedWidth)
             }
             .task {
                 // The lazy stack needs a beat to realise its children first.
@@ -107,13 +116,48 @@ struct HomeView: View {
             }
         }
         .scrollIndicators(.hidden)
-        .background {
-            GeometryReader { geometry in
-                GlanceColor.bgBase
-                    .onAppear { contentWidth = geometry.size.width }
-                    .onChange(of: geometry.size.width) { _, width in contentWidth = width }
+        // Edge to edge: only the content is columned, never the canvas.
+        .background(GlanceColor.bgBase)
+    }
+
+    /// The comp's arrangement: hand-paired columns with wide cards breaking
+    /// between them. What a phone gets.
+    private var authoredRows: some View {
+        let rows = FeedLayout.rows(for: blocks)
+
+        return ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
+            Group {
+                switch row {
+                case .flow(let flow):
+                    HStack(alignment: .top, spacing: columnGap) {
+                        ForEach(Array(flow.columns.enumerated()), id: \.offset) { _, items in
+                            column(items)
+                        }
+                    }
+                case .wide(let item):
+                    view(for: item)
+                }
+            }
+            .padding(.horizontal, gutter)
+            .padding(.bottom, index == rows.count - 1 ? 0 : gap(after: row))
+            .id(index)
+        }
+    }
+
+    /// Wider canvases: one continuous masonry, measured rather than paired, with
+    /// the wide cards spanning two columns instead of breaking the flow.
+    private var masonry: some View {
+        let items = FeedLayout.items(for: blocks)
+
+        return FeedMasonry(columns: columnCount, spacing: columnGap) {
+            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                view(for: item)
+                    .feedSpan(item.keepsPhoneWidth ? bigLookSpan : item.isWide ? wideSpan : 1)
+                    .feedGapBelow(gap(after: item))
+                    .id(index)
             }
         }
+        .padding(.horizontal, gutter)
     }
 
     private func ask(_ title: String, _ prompt: String) {
@@ -153,18 +197,42 @@ struct HomeView: View {
         }
     }
 
-    /// Both columns are pinned to an equal, measured width. Left to its own
+    /// Two on a phone, as the comp draws it, rising as the canvas widens.
+    private var columnCount: Int {
+        GlanceLayout.feedColumnCount(for: contentWidth)
+    }
+
+    /// How many columns a trend or routine card takes. Once the columns are
+    /// wide enough on their own it stays in one, which keeps the masonry from
+    /// stranding space above it.
+    private var wideSpan: Int {
+        guard let columnWidth else { return 2 }
+        return GlanceLayout.wideCardSpan(columnWidth: columnWidth, count: columnCount)
+    }
+
+    /// How many columns the big look card takes on a wide canvas.
+    private var bigLookSpan: Int {
+        guard let columnWidth else { return 1 }
+        return GlanceLayout.bigCardSpan(columnWidth: columnWidth, count: columnCount)
+    }
+
+    /// Every column is pinned to an equal, measured width. Left to its own
     /// devices an `HStack` hands extra room to whichever column holds the
-    /// longest unbreakable word, which pushes the other one off-balance.
+    /// longest unbreakable word, which pushes the others off-balance.
     private var columnWidth: CGFloat? {
         guard contentWidth > 0 else { return nil }
-        return (contentWidth - gutter * 2 - columnGap) / 2
+        return GlanceLayout.feedColumnWidth(for: contentWidth, count: columnCount)
     }
 
     private func column(_ items: [FeedItem]) -> some View {
         VStack(spacing: 0) {
             ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                 view(for: item)
+                    // Every card takes its own height. Offered a fixed one, a
+                    // card whose photo is an aspect-fit box shrinks the photo
+                    // to fit what's left after its text, leaving it narrower
+                    // than the card with the tint showing down one side.
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.bottom, index == items.count - 1 ? 0 : gap(after: item))
             }
         }
@@ -177,10 +245,10 @@ struct HomeView: View {
         item.hasTail ? rowGapAfterTail : rowGap
     }
 
-    /// A full-width block inherits its card's gap; a two-column run keeps the
-    /// standard one, since its two columns rarely end on the same kind of card.
-    private func gap(after block: FeedBlock) -> CGFloat {
-        if case .wide(let item) = block { return gap(after: item) }
+    /// A wide row inherits its card's gap; a flowing run keeps the standard
+    /// one, since its columns rarely end on the same kind of card.
+    private func gap(after row: FeedRow) -> CGFloat {
+        if case .wide(let item) = row { return gap(after: item) }
         return rowGap
     }
 
@@ -188,7 +256,9 @@ struct HomeView: View {
     private func view(for item: FeedItem) -> some View {
         switch item {
         case .look(let card):
-            LookCardView(card: card)
+            LookCardView(card: card) {
+                ask("Give feedback", "What didn't work for you about this look?")
+            }
         case .rational(let card):
             if let productID = card.productID {
                 Button { path.append(Route.product(productID)) } label: {
@@ -200,7 +270,9 @@ struct HomeView: View {
                 RationalCardView(card: card)
             }
         case .tip(let card):
-            TipCardView(card: card)
+            TipCardView(card: card) {
+                ask("Glance AI", card.headline)
+            }
         case .prompt(let card):
             PromptCardView(card: card) {
                 ask("Glance AI", card.text)
@@ -218,6 +290,10 @@ struct HomeView: View {
             RoutineCardView(card: card)
         case .signal(let card):
             SignalCardView(card: card)
+        case .poster(let card):
+            PosterCardView(card: card) {
+                ask("Glance AI", card.prompt)
+            }
         }
     }
 }

@@ -5,33 +5,39 @@ import SwiftUI
 enum AskGlanceBarMetrics {
     /// Distance from the pill to the physical bottom edge.
     static let bottomGap: CGFloat = Space.xl
-    static let pillHeight: CGFloat = 56
-    /// How far the blur reaches above the bar's own content.
-    static let gradeRun: CGFloat = 70
+    static let pillHeight: CGFloat = 48
+    /// How far the band reaches above the bar's own content — the comp's
+    /// 140pt frame less the pill and the gap beneath it.
+    static let gradeRun: CGFloat = 68
     /// Layout room a scroll view should leave so its last item clears the bar.
     static var reservedHeight: CGFloat { bottomGap + pillHeight + Space.xl }
 }
 
-/// `Bottom New` (406:1419) — the Glance composer, pinned to the foot of a screen.
+/// `Before Onboarding` (V7, 2:1149) — the Glance composer, pinned to the foot
+/// of a screen: a dark pill reading like an empty text field, with the attach
+/// control at its leading end.
 ///
 /// Shared by the home feed and the product screen; the latter passes its
-/// suggestion chips as an `accessory` row above the pill. The band behind it is
-/// `EdgeScrim`, the same progressive blur and ramp to `#000000` the pinned
-/// headers use, mirrored to the bottom.
+/// suggestion chips as an `accessory` row above the pill.
 struct AskGlanceBar<Accessory: View>: View {
     var onAsk: () -> Void
     var onAttach: () -> Void
     /// Optional row shown above the pill, full-bleed so chips can scroll to the edge.
     @ViewBuilder var accessory: () -> Accessory
 
+    /// The comp's 364pt pill on a 412pt screen; capped on wider canvases.
     private let pillWidth: CGFloat = 390
 
     var body: some View {
         VStack(spacing: Space.lg) {
+            // Full-bleed within the content column, so chips still scroll to
+            // the edge of the column on a wide screen instead of to the edge
+            // of an iPad.
             accessory()
+                .glanceContentColumn()
             pill
                 .frame(maxWidth: pillWidth)
-                .padding(.horizontal, Space.lg)
+                .padding(.horizontal, Space.xl)
         }
         .padding(.bottom, AskGlanceBarMetrics.bottomGap)
         .frame(maxWidth: .infinity)
@@ -41,65 +47,59 @@ struct AskGlanceBar<Accessory: View>: View {
 
     // MARK: Band
 
-    /// Bottom-anchored twin of the headers' scrim: same progressive blur, same
-    /// ramp to `#000000`, mirrored.
+    /// Clear at the top, solid black from 80% of the way down — a plain ramp,
+    /// with no blur under it.
     private var band: some View {
-        EdgeScrim(edge: .bottom)
-            .padding(.top, -AskGlanceBarMetrics.gradeRun)
+        LinearGradient(
+            stops: [
+                .init(color: .black.opacity(0), location: 0),
+                .init(color: .black, location: 0.8)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .padding(.top, -AskGlanceBarMetrics.gradeRun)
+        .allowsHitTesting(false)
     }
 
     // MARK: Pill
 
     private var pill: some View {
-        let shape = RoundedRectangle(cornerRadius: 50, style: .continuous)
+        let shape = Capsule()
+
         return HStack(spacing: 0) {
-            Button(action: onAsk) {
-                HStack(spacing: 9) {
-                    Image("ic-mascot-m")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 22, height: 17.57)
-                        .frame(width: 22, height: 22)
-                    Text("Ask Glance")
-                        .glanceText(.bodySMedium)
-                        .foregroundStyle(GlanceColor.textSecondary)
-                }
-                .padding(.horizontal, Space.md)
-                .frame(height: 22)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-
-            Spacer(minLength: Space.sm)
-
             Button(action: onAttach) {
-                Image("ic-plus-thin")
+                // The exported icon is the whole 48pt target, the glyph centred
+                // in it, so it needs no padding of its own.
+                Image("ic-plus-composer")
                     .resizable()
-                    .scaledToFit()
-                    .frame(width: 14.5, height: 14.5)
-                    .padding(12)
-                    .background(Circle().fill(GlanceColor.bgOverlay))
+                    .frame(width: AskGlanceBarMetrics.pillHeight, height: AskGlanceBarMetrics.pillHeight)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Add an image")
+
+            Button(action: onAsk) {
+                // The bar stands in for a text field, and the leading bar is
+                // its idle caret — it is part of the placeholder in the comp.
+                Text("| Ask Glance")
+                    .font(.custom(GlanceTypeface.interMedium, size: 12))
+                    .foregroundStyle(GlanceColor.textTertiary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                    .padding(.trailing, Space.lg)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Ask Glance")
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 7)
         .frame(height: AskGlanceBarMetrics.pillHeight)
         .background {
             shape
-                .fill(Color(hex: 0x111111, opacity: 0.8))
-                // `shadow(inset 0 4px 20px rgba(255,255,255,0.08))`
-                .innerGlow(
-                    shape,
-                    radius: 20,
-                    color: Color.white.opacity(0.08),
-                    offset: CGSize(width: 0, height: 4)
-                )
+                .fill(GlanceColor.bgBase)
+                // `Inner Glow/Soft` — 20pt of white at 15% inside the edge.
+                .innerGlow(shape, radius: 20, color: Color.white.opacity(0.15))
         }
         .overlay { shape.strokeBorder(Color.white.opacity(0.05), lineWidth: 1) }
-        // `shadow(0 0 36px 8px #111)` — grounds the pill against the feed.
-        .shadow(color: Color(hex: 0x111111), radius: 18)
     }
 }
 

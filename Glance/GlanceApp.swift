@@ -8,8 +8,14 @@ struct GlanceApp: App {
 
     var body: some Scene {
         WindowGroup {
-            HomeView()
-                .preferredColorScheme(.dark)
+            Group {
+                if DebugLaunch.gallery == "look" {
+                    LookCardGallery()
+                } else {
+                    HomeView()
+                }
+            }
+            .preferredColorScheme(.dark)
         }
     }
 }

@@ -30,6 +30,12 @@ enum GlanceColor {
     // MARK: Accent
     static let accentPrimary = Color(hex: 0xA48AFF)
     static let accentBold = Color(hex: 0x6B38FB)
+    /// V7 `secondary` — the lavender of the signal card's label and avatar ring.
+    static let accentSecondary = Color(hex: 0xC2B0FF)
+
+    // MARK: Outline
+    /// V7 `outlineVariant` — hairlines on the darkest surfaces.
+    static let outlineVariant = Color(hex: 0x262626)
 
     // MARK: Feedback
     static let feedbackRating = Color(hex: 0xEAB308)

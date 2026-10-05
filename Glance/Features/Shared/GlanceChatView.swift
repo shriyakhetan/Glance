@@ -53,6 +53,7 @@ struct GlanceChatView: View {
                 .padding(.horizontal, Space.xl)
                 .padding(.top, Space.xl)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .glanceContentColumn()
             }
             .onChange(of: lines.count) {
                 withAnimation { proxy.scrollTo(Self.bottomAnchor, anchor: .bottom) }
@@ -98,6 +99,7 @@ struct GlanceChatView: View {
         }
         .padding(.horizontal, 15)
         .padding(.vertical, Space.md)
+        .glanceContentColumn()
         .background(.black.opacity(0.6))
         .background(.ultraThinMaterial)
     }
@@ -207,6 +209,7 @@ struct GlanceChatView: View {
         .overlay(Capsule().strokeBorder(Color.white.opacity(0.3), lineWidth: 0.936))
         .padding(.horizontal, Space.xl)
         .padding(.bottom, Space.xxl)
+        .glanceContentColumn()
         // The comp grades the bottom to black over a blur, the same treatment
         // the feed's composer sits on.
         .background {
