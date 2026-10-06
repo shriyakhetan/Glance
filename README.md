@@ -1,20 +1,43 @@
 # Glance — Style Intelligence
 
-A SwiftUI iOS app built from the [Fig File](https://www.figma.com/design/Lc6brs9Cgeem9rbu1jHwgH/Fig-File?node-id=11-1211) design system: a personalised style feed, a product detail screen, and a Style Intelligence Profile.
+A SwiftUI iOS app built from the [Fig File](https://www.figma.com/design/Lc6brs9Cgeem9rbu1jHwgH/Fig-File?node-id=11-1211) design system: a personalised style feed, product, look and tip pages, and a Style Intelligence Profile.
+
+## What it looks like
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/home.jpg" width="250" alt="Home feed"><br><sub>Home feed</sub></td>
+    <td align="center"><img src="docs/screenshots/feed.jpg" width="250" alt="Feed cards"><br><sub>Feed cards</sub></td>
+    <td align="center"><img src="docs/screenshots/product.jpg" width="250" alt="Product page"><br><sub>Product page</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/look.jpg" width="250" alt="Look page"><br><sub>Look page</sub></td>
+    <td align="center"><img src="docs/screenshots/tip.jpg" width="250" alt="Tip page"><br><sub>Tip page</sub></td>
+    <td align="center"><img src="docs/screenshots/profile.jpg" width="250" alt="Style Intelligence Profile"><br><sub>Profile</sub></td>
+  </tr>
+</table>
+
+Captured from `main` on an iPhone 18 Pro simulator (iOS 27).
 
 ## Running it
 
+You need **Xcode 26 or later**, and an iPhone simulator or iPhone on **iOS 26 or later**. The app is built on iOS 26's Liquid Glass, so older versions of Xcode can't build it and older iPhones can't install it.
+
 ```bash
+git clone https://github.com/shriyakhetan/Glance.git
+cd Glance
 open Glance.xcodeproj
 ```
 
-Pick any iPhone simulator and run. Minimum deployment target is **iOS 18** (the shared-element navigation transition needs it). Dark only.
+Pick an iPhone simulator and run. Dark only.
+
+**Already have a copy?** It only shows what was there the day you got it. Run `git pull` in the project folder (or download the ZIP again), then build and run again.
 
 ## Installing it on a phone
 
 The app builds clean for `arm64` device (`-destination 'generic/platform=iOS'`), but a build only runs on a phone once **your** signing identity is on it — no one else can sign it for you.
 
-**With any Apple ID, no paid account.** Open `Glance.xcodeproj`, pick the Glance target → *Signing & Capabilities*, set *Team* to your personal team, plug the iPhone in and Run. If Xcode says the bundle identifier is unavailable, change `PRODUCT_BUNDLE_IDENTIFIER` to something of your own (`com.yourname.glance`). The app then runs for **7 days** before it needs re-installing, and the phone must be on **iOS 18 or newer**.
+**With any Apple ID, no paid account.** Open `Glance.xcodeproj`, pick the Glance target → *Signing & Capabilities*, set *Team* to your personal team, plug the iPhone in and Run. If Xcode says the bundle identifier is unavailable, change `PRODUCT_BUNDLE_IDENTIFIER` to something of your own (`com.yourname.glance`). The app then runs for **7 days** before it needs re-installing, and the phone must be on **iOS 26 or newer**.
 
 **With a paid developer account**, to hand someone an `.ipa`:
 
