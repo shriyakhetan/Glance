@@ -93,8 +93,12 @@ struct AskGlanceView: View {
         }
         .padding(.horizontal, Space.lg)
         .padding(.vertical, Space.md)
-        .background(Capsule().fill(GlanceColor.bgOverlay))
-        .overlay(Capsule().strokeBorder(GlanceColor.borderSubtle, lineWidth: 1))
+        // The same glass as the bar that opened this sheet.
+        .liquidGlass(in: Capsule(), interactive: true) { field in
+            field
+                .background(Capsule().fill(GlanceColor.bgOverlay))
+                .overlay(Capsule().strokeBorder(GlanceColor.borderSubtle, lineWidth: 1))
+        }
         .padding(.horizontal, Space.xl)
         .padding(.bottom, Space.lg)
     }

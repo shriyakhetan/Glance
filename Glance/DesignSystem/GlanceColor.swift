@@ -36,6 +36,20 @@ enum GlanceColor {
     // MARK: Outline
     /// V7 `outlineVariant` — hairlines on the darkest surfaces.
     static let outlineVariant = Color(hex: 0x262626)
+    /// V7 `outlineVariant` as the L2 comp (32:2523) sets it — the hairline on
+    /// tiles, dividers and outlined buttons.
+    static let hairline = Color(hex: 0x333333)
+
+    // MARK: V7 roles
+    /// V7 `tertiary` — a good read: what matches, a price under its usual, looks
+    /// that are ready.
+    static let positive = Color(hex: 0x4DDB85)
+    /// V7 `error` — what doesn't match.
+    static let negative = Color(hex: 0xFF6B6B)
+    /// The saving on every product card — `(20% OFF)`.
+    static let discount = Color(hex: 0xFF8787)
+    /// V7 `surfaceBright` — a box set into a card.
+    static let surfaceBright = Color(hex: 0x1A1A1A)
 
     // MARK: Feedback
     static let feedbackRating = Color(hex: 0xEAB308)

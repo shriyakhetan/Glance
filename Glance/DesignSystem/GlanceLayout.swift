@@ -20,12 +20,11 @@ enum GlanceLayout {
 
     // MARK: - Feed grid
 
-    /// An 8pt gutter at the screen edges, 16pt between cards both across and
-    /// down — the mosaic runs nearly edge to edge while each card keeps room
-    /// around it.
+    /// 8pt everywhere: at the screen edges, between the columns and between
+    /// stacked cards — one even rhythm, the mosaic running nearly edge to edge.
     static let feedGutter: CGFloat = Space.sm
-    static let feedColumnGap: CGFloat = Space.lg
-    static let feedRowGap: CGFloat = Space.lg
+    static let feedColumnGap: CGFloat = Space.sm
+    static let feedRowGap: CGFloat = Space.sm
 
     /// Three columns at most.
     ///

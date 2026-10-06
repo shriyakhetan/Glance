@@ -42,9 +42,10 @@ struct MockFeedRepository: FeedRepository {
     }
 
     func blocks() -> [FeedBlock] {
-        // Short two-column runs, each pairing cards of similar height so its
-        // columns end level. Posters are scattered through them, never next
-        // to one another — across a row or one above the other.
+        // Two-column runs between the wide cards. Consecutive runs flow on as
+        // one (`FeedLayout.rows`), so what matters is each column's order:
+        // posters, dark AI cards, tips and products never sit next to one
+        // another — across the columns or one above the other.
         [
             .columns(
                 left: [
@@ -58,14 +59,26 @@ struct MockFeedRepository: FeedRepository {
                 ],
                 right: [
                     .tip(TipCard(
-                        tint: Color(hex: 0x6B3B3B),
-                        ink: Color(hex: 0xEAD6D6),
+                        category: .beauty,
+                        shade: 1,
                         tag: MatchTag(category: "Skin tip"),
                         headline: "Overcast isn't off-duty. Most UV gets through cloud, so SPF stays on.",
                         highlight: "Most UV gets through cloud",
-                        body: "UV rays penetrate clouds and glass. Daily protection is the most effective way to prevent premature ageing and sun damage."
+                        body: "UV rays penetrate clouds and glass. Daily protection is the most effective way to prevent premature ageing and sun damage.",
+                        suggestions: [.aurodheaSPF, .neutrogenaCleanser],
+                        chips: ["Find more", "SPF for combination skin", "Tinted options"],
+                        action: .shop("Find Sunscreens")
                     )),
-                    .prompt(PromptCard(text: "Start a conversation with Glance AI"))
+                    // 2831:1019 — `Start Chat`, the filler at its shortest.
+                    .prompt(PromptCard(
+                        style: .compact,
+                        text: "Start a chat?",
+                        chat: ChatTopic(
+                            source: "Glance AI",
+                            opening: "Hi! What's on your mind? I can put a look together, find you a gift, or settle a sizing question.",
+                            options: ["Put a look together", "Find a gift", "Help with sizing"]
+                        )
+                    ))
                 ]
             ),
 
@@ -105,14 +118,16 @@ struct MockFeedRepository: FeedRepository {
                 ]
             ),
 
-            // 19:837 — `Look Card big`, gutter to gutter. The shot is the
-            // card's own proportion, so it fills without cropping.
+            // 29:881 — `Look Card Big`, gutter to gutter, asking for a read
+            // under the photo. The caption stays Glance's own: the comp's
+            // placeholder calls this airport shot a Sunday brunch look.
             .wide(.look(LookCard(
                 image: "look-airport",
                 tag: MatchTag(category: "Travel", match: "93% MATCH"),
                 title: "Cream knit and wide-leg trousers: an easy airport look for your next trip",
-                style: .plain,
-                isFullWidth: true
+                style: .feedback,
+                isFullWidth: true,
+                detailID: "airport"
             ))),
 
             // A poster tops one column and its twin ends the other, so the two never
@@ -120,6 +135,13 @@ struct MockFeedRepository: FeedRepository {
             .columns(
                 left: [
                     .poster(PosterCard(image: "poster-watch-rose", prompt: "Pick a watch I'll never take off")),
+                    // 321:533
+                    .signal(SignalCard(
+                        avatar: "profile-hero",
+                        question: "Do you keep a phone for three years or more?",
+                        options: ["Yes", "No"],
+                        acknowledgement: "Noted — %@. I'll weigh durability accordingly when I show you gadgets."
+                    )),
                     // Was the yellow dress again; the office flat lay is its
                     // own look and the profile's most-worn occasion.
                     .look(LookCard(
@@ -127,13 +149,6 @@ struct MockFeedRepository: FeedRepository {
                         tag: MatchTag(category: "Workwear", match: "90% MATCH"),
                         title: "Olive polo, black trousers, brown loafers. Office-ready without the effort",
                         style: .plain
-                    )),
-                    // 321:533
-                    .signal(SignalCard(
-                        avatar: "profile-hero",
-                        question: "Do you keep a phone for three years or more?",
-                        options: ["Yes", "No"],
-                        acknowledgement: "Noted — %@. I'll weigh durability accordingly when I show you gadgets."
                     ))
                 ],
                 right: [
@@ -147,19 +162,54 @@ struct MockFeedRepository: FeedRepository {
                         price: PriceTag(current: "$14", original: "$18")
                     )),
                     .tip(TipCard(
-                        tint: Color(hex: 0x38492C),
-                        ink: .white,
+                        category: .beauty,
+                        shade: 3,
                         tag: MatchTag(category: "Hair tip"),
                         headline: "Wavy hair frizzes in humid air. Scrunch in a leave-in while it's still damp.",
                         highlight: "Wavy hair frizzes in humid air",
-                        body: "Waves lose definition when moisture from the air swells the hair shaft. Sealing it while damp keeps the pattern intact through the day."
+                        body: "Waves lose definition when moisture from the air swells the hair shaft. Sealing it while damp keeps the pattern intact through the day.",
+                        suggestions: [.harrysCream],
+                        chips: ["Find more", "Styling for waves", "A humidity-proof routine"],
+                        action: .shop("Show Products")
                     )),
                     .poster(PosterCard(image: "poster-gift-partner", prompt: "Pick a gift for my partner"))
                 ]
             ),
 
+            // Runs on into the block below as one flow (`FeedLayout.rows`), so
+            // what matters is each column's order: the filler's two taller
+            // states are kept clear of the question cards beside them.
             .columns(
                 left: [
+                    .signal(SignalCard(
+                        avatar: "profile-hero",
+                        question: "Would you wear the same outfit twice in a week?",
+                        options: ["Happily", "Only if nobody noticed", "Never"],
+                        acknowledgement: "Noted — %@. That tells me how hard to work your basics."
+                    )),
+                    // The artwork is a pet slicker brush; the comp's copy
+                    // called it a jade roller.
+                    .rational(RationalCard(
+                        image: "product-brush",
+                        tint: Color(hex: 0x42423E),
+                        brand: "Hertzko",
+                        claim: "Self-cleaning slicker brush. Less fur on the sofa",
+                        reason: "Because you've been looking at pet care",
+                        price: PriceTag(current: "$18", original: "$25")
+                    ))
+                ],
+                right: [
+                    .tip(TipCard(
+                        category: .fashion,
+                        shade: 2,
+                        tag: MatchTag(category: "Workwear tip"),
+                        headline: "Match your belt to your shoes. It pulls an office look together in one move.",
+                        highlight: "Match your belt to your shoes",
+                        body: "Leathers in the same tone read as a decision rather than an accident, which is most of what makes an outfit look put together.",
+                        suggestions: [.bassLoafers, .unifringePolo],
+                        chips: ["Find more", "Find similar outfits", "Browse belts"],
+                        action: .explain
+                    )),
                     // 321:587 — a sun spray, by the bottle's own label.
                     .rational(RationalCard(
                         image: "product-sunscreen",
@@ -170,31 +220,17 @@ struct MockFeedRepository: FeedRepository {
                         price: PriceTag(current: "$22", original: "$28"),
                         note: "2k bought this"
                     )),
-                    .tip(TipCard(
-                        tint: Color(hex: 0x5A4632),
-                        ink: .white,
-                        tag: MatchTag(category: "Workwear tip"),
-                        headline: "Match your belt to your shoes. It pulls an office look together in one move.",
-                        highlight: "Match your belt to your shoes",
-                        body: "Leathers in the same tone read as a decision rather than an accident, which is most of what makes an outfit look put together."
-                    )),
-                    .prompt(PromptCard(text: "Ask me what goes with your olive polo"))
-                ],
-                right: [
-                    // The artwork is a pet slicker brush; the comp's copy
-                    // called it a jade roller.
-                    .rational(RationalCard(
-                        image: "product-brush",
-                        tint: Color(hex: 0x42423E),
-                        claim: "Self-cleaning slicker brush. Less fur on the sofa",
-                        reason: "Because you've been looking at pet care",
-                        price: PriceTag(current: "$18", original: "$25")
-                    )),
-                    .signal(SignalCard(
-                        avatar: "profile-hero",
-                        question: "Would you wear the same outfit twice in a week?",
-                        options: ["Happily", "Only if nobody noticed", "Never"],
-                        acknowledgement: "Noted — %@. That tells me how hard to work your basics."
+                    // 2831:1017 — `Continue Chat`, picking a thread back up.
+                    // The comp's copy, with its "you date" and "few ideas"
+                    // put right.
+                    .prompt(PromptCard(
+                        style: .resume,
+                        text: "Did you get the perfect dress for your date? I have a few ideas for you",
+                        chat: ChatTopic(
+                            source: "Date night",
+                            opening: "Did you find the dress for your date? If not, I've pulled a few ideas that suit your warm undertone: a slip dress in deep olive, a rust wrap midi, and a black column dress with a low back.",
+                            options: ["Show me the ideas", "I found one", "Still looking"]
+                        )
                     ))
                 ]
             ),
@@ -202,31 +238,49 @@ struct MockFeedRepository: FeedRepository {
             .columns(
                 left: [
                     .poster(PosterCard(image: "poster-shirts", prompt: "Curate shirts for me")),
+                    // 3138:1867 — `Start Chat 2`. The comp's line reads "What to
+                    // chat about something?".
+                    .prompt(PromptCard(
+                        style: .stacked,
+                        text: "Want to chat about something?",
+                        chat: ChatTopic(
+                            source: "Glance AI",
+                            opening: "Always. A look for the week, a gift, a routine — what are we working on?",
+                            options: ["A look for this week", "A gift idea", "My skincare routine"]
+                        )
+                    )),
                     // 321:540
                     .rational(RationalCard(
                         image: "product-flowers",
                         tint: Color(hex: 0x7C6F3A),
+                        brand: "Ferm Living",
                         claim: "Stacked ceramic vases. A shot of colour for a calm room",
                         reason: "Because your space leans neutral and could take one bold accent",
                         price: PriceTag(current: "$38", original: "$52")
                     )),
                     .tip(TipCard(
-                        tint: Color(hex: 0x3A4763),
-                        ink: .white,
-                        tag: MatchTag(category: "Style tip"),
-                        headline: "Warm undertone? Swap stark white for cream or ecru near your face.",
-                        highlight: "Swap stark white for cream or ecru",
-                        body: "Bright white can make warm skin look sallow. Softer, yellow-based whites reflect warmth back and read as more polished."
+                        category: .beauty,
+                        shade: 5,
+                        tag: MatchTag(category: "Fragrance tip"),
+                        headline: "Moisturise before you spray. Scent lasts longer on hydrated skin.",
+                        highlight: "Scent lasts longer on hydrated skin",
+                        body: "Fragrance oils evaporate faster from dry skin. An unscented lotion on pulse points gives them something to hold on to.",
+                        suggestions: [.chanelNo5],
+                        chips: ["Find more", "Scents like this", "Unscented lotions"],
+                        action: .explain
                     ))
                 ],
                 right: [
                     .tip(TipCard(
-                        tint: Color(hex: 0x2C4A52),
-                        ink: .white,
-                        tag: MatchTag(category: "Fragrance tip"),
-                        headline: "Moisturise before you spray. Scent lasts longer on hydrated skin.",
-                        highlight: "Scent lasts longer on hydrated skin",
-                        body: "Fragrance oils evaporate faster from dry skin. An unscented lotion on pulse points gives them something to hold on to."
+                        category: .fashion,
+                        shade: 4,
+                        tag: MatchTag(category: "Style tip"),
+                        headline: "Warm undertone? Swap stark white for cream or ecru near your face.",
+                        highlight: "Swap stark white for cream or ecru",
+                        body: "Bright white can make warm skin look sallow. Softer, yellow-based whites reflect warmth back and read as more polished.",
+                        suggestions: [.uniqloMerino],
+                        chips: ["Find more", "Find similar outfits", "Browse cream knits"],
+                        action: .shop("Show Products")
                     )),
                     // 321:554 — its own export, distinct from 321:684.
                     .look(LookCard(
@@ -253,6 +307,7 @@ struct MockFeedRepository: FeedRepository {
                     .rational(RationalCard(
                         image: "product-knit",
                         tint: Color(hex: 0x6D5437),
+                        brand: "Uniqlo",
                         claim: "Merino crewneck in oatmeal. Your cream-not-white swap, done",
                         reason: "Because warm whites suit your undertone better than stark white",
                         price: PriceTag(current: "$64", original: "$85")
@@ -277,31 +332,39 @@ struct MockFeedRepository: FeedRepository {
                     .rational(RationalCard(
                         image: "product-loafers",
                         tint: Color(hex: 0x68543C),
+                        brand: "G.H. Bass",
                         claim: "Suede penny loafers. Polished for the office, easy at the weekend",
                         reason: "Because loafers are already your most-worn office shoe",
                         price: PriceTag(current: "$89", original: "$120")
                     )),
                     .tip(TipCard(
-                        tint: Color(hex: 0x6B4A2E),
-                        ink: .white,
+                        category: .fashion,
+                        shade: 3,
                         tag: MatchTag(category: "Colour tip"),
                         headline: "Autumn palette? Rust, olive and camel flatter you more than black.",
                         highlight: "Rust, olive and camel",
-                        body: "Warm, muted colours echo the warmth in your skin. Black can drain it, especially close to the face."
+                        body: "Warm, muted colours echo the warmth in your skin. Black can drain it, especially close to the face.",
+                        suggestions: [.unifringePolo, .bassLoafers],
+                        chips: ["Find more", "Find similar outfits", "Browse rust and camel"],
+                        action: .explain
                     ))
                 ],
                 right: [
                     .tip(TipCard(
-                        tint: Color(hex: 0x3D3A55),
-                        ink: .white,
+                        category: .beauty,
+                        shade: 2,
                         tag: MatchTag(category: "Skin tip"),
                         headline: "Wear SPF daily? Cleanse twice at night. Once won't lift it all.",
                         highlight: "Once won't lift it all",
-                        body: "Sunscreen is built to stay put. A first cleanse breaks it down; the second actually cleans the skin underneath."
+                        body: "Sunscreen is built to stay put. A first cleanse breaks it down; the second actually cleans the skin underneath.",
+                        suggestions: [.neutrogenaCleanser, .aurodheaSPF],
+                        chips: ["Find more", "Build my night routine", "Gentle cleansers"],
+                        action: .shop("Find Cleansers")
                     )),
                     .rational(RationalCard(
                         image: "product-cleanser",
                         tint: Color(hex: 0x4D5656),
+                        brand: "Neutrogena",
                         claim: "Hydrating gel cleanser. Gentle enough for twice a day",
                         reason: "Because you asked for a gentler evening routine",
                         price: PriceTag(current: "$24", original: "$32")

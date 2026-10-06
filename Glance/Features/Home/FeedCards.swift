@@ -30,17 +30,28 @@ struct LookCardView: View {
         _feedback = State(initialValue: card.style.asksForFeedback ? feedback : .none)
     }
 
-    /// The photograph's frame at rest. One proportion for both sizes: the
-    /// column card is 170×302 in the comp (16:242), the big card 364×647
-    /// (19:837) — the same shape, scaled.
+    /// The photograph's own proportion. One for both sizes: the column card
+    /// is 170×302 in the comp (16:242), the big card's shot 364×647 (29:883)
+    /// — the same shape, scaled.
     private let photoAspect: CGFloat = 170.0 / 302.0
 
-    /// The big card (19:837) sets its caption a size up, on a deeper scrim,
+    /// The big card (29:881) sets its caption a size up, on a deeper scrim,
     /// with its heart set further in.
     private var isBig: Bool { card.isFullWidth }
-    /// The thumbs row: two 32pt targets with 6pt above and below.
-    private static let feedbackRowHeight: CGFloat = 44
-    private static let cornerRadius: CGFloat = Radius.xl
+    /// The big card asking for a read rests its photo in a 364×576 window
+    /// over its footer, shedding the foot of the shot. Every other card shows
+    /// the whole photograph.
+    private var hasFooter: Bool { isBig && card.style.asksForFeedback }
+    /// The window's height in the comp's points, for the big card's scrim.
+    private var bigWindowHeight: CGFloat { hasFooter ? 576 : 647 }
+    private var windowAspect: CGFloat { hasFooter ? 364 / bigWindowHeight : photoAspect }
+    /// The thumbs row. The column card's: two 32pt targets with 6pt above and
+    /// below. The big card's footer (29:888): its question beside the thumbs,
+    /// 16pt above and below.
+    private var feedbackRowHeight: CGFloat { isBig ? 64 : 44 }
+    /// 24, smoothed, like every card in the app — the big card's comp asks
+    /// for 32.
+    private let cornerRadius: CGFloat = Radius.xl
 
     /// The comp's own scrim and panel — what `ImageTone` gives for its photo,
     /// and what a card falls back to if its photo can't be sampled.
@@ -62,13 +73,22 @@ struct LookCardView: View {
     var body: some View {
         sizing
             .overlay { content }
-            .background(card.style.asksForFeedback ? panel : Self.plainFill)
-            .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
+            .background(surfaceFill)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay { highlightRule }
             .overlay(alignment: .topTrailing) {
                 WishlistButton(tone: .scrim).padding(isBig ? Space.lg : Space.md)
             }
             .animation(.spring(response: 0.38, dampingFraction: 0.86), value: feedback)
+            .sensoryFeedback(.selection, trigger: feedback)
+    }
+
+    /// What shows past the photograph. The big card's footer is the scrim's
+    /// own tone, so the photo settles straight into it (29:881 uses `#41413E`
+    /// for both); the column card's panel is a step darker (16:242).
+    private var surfaceFill: Color {
+        guard card.style.asksForFeedback else { return Self.plainFill }
+        return isBig ? shade : panel
     }
 
     // MARK: - Layout
@@ -77,9 +97,9 @@ struct LookCardView: View {
     /// when there is one — so nothing that happens inside can change it.
     private var sizing: some View {
         VStack(spacing: 0) {
-            Color.clear.aspectRatio(photoAspect, contentMode: .fit)
+            Color.clear.aspectRatio(windowAspect, contentMode: .fit)
             if card.style.asksForFeedback {
-                Color.clear.frame(height: Self.feedbackRowHeight)
+                Color.clear.frame(height: feedbackRowHeight)
             }
         }
     }
@@ -90,12 +110,14 @@ struct LookCardView: View {
             photo
                 .frame(maxHeight: .infinity)
 
-            if card.style.asksForFeedback {
+            if hasFooter {
+                footer
+            } else if card.style.asksForFeedback {
                 feedbackRow
                 reply
             }
         }
-        .padding(.bottom, feedback == .none ? 0 : Space.md)
+        .padding(.bottom, !isBig && feedback != .none ? Space.md : 0)
     }
 
     /// The photograph is always drawn at its full resting height and pinned to
@@ -113,8 +135,8 @@ struct LookCardView: View {
             .overlay { if isBig { bigScrim } }
             .overlay(alignment: .bottom) { caption }
             // Only the corner that meets the panel is rounded; the rest are
-            // the card's own (16:242).
-            .clipShape(UnevenRoundedRectangle(bottomTrailingRadius: Self.cornerRadius, style: .continuous))
+            // the card's own (16:242, 29:882).
+            .clipShape(UnevenRoundedRectangle(bottomTrailingRadius: cornerRadius, style: .continuous))
             // `Shadow/Floating` — falls onto the panel below.
             .glanceFloatingShadow()
     }
@@ -133,8 +155,9 @@ struct LookCardView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(Space.xl)
         } else {
+            // `Body/Large`, 16pt.
             Text(card.title)
-                .glanceText(.bodyCaption)
+                .glanceText(.bodyLarge)
                 .foregroundStyle(GlanceColor.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -154,12 +177,12 @@ struct LookCardView: View {
         }
     }
 
-    /// The big card's scrim (19:839) is a fixed band rather than one sized to
-    /// its caption: the bottom 260 of the comp's 647pt, fading in from 14.7%
-    /// of the way down that band. Written as stops over the whole photo, so it
-    /// keeps that proportion at any width without measuring anything.
+    /// The big card's scrim (29:884) is a fixed band rather than one sized to
+    /// its caption: the bottom 260pt of the photo's window, fading in from
+    /// 14.7% of the way down that band. Written as stops over the whole
+    /// window, so it keeps that proportion at any width without measuring.
     private var bigScrim: some View {
-        let band = 260.0 / 647.0
+        let band = 260.0 / bigWindowHeight
         let fadeStart = 1 - band + band * 0.147
         return LinearGradient(
             stops: [
@@ -173,6 +196,23 @@ struct LookCardView: View {
     }
 
     // MARK: - Feedback
+
+    /// The big card's footer (29:888): the question, then the thumbs. A thumbs
+    /// up answers it — `You’ll see more of these` (29:914). A thumbs down
+    /// leaves the question standing, as the comp has it (29:901).
+    private var footer: some View {
+        HStack(spacing: Space.xxl) {
+            Text(feedback == .up ? "You’ll see more of these" : "Do you like this look?")
+                .glanceText(.labelMedium)
+                .foregroundStyle(GlanceColor.textPrimary)
+                .contentTransition(.opacity)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            thumb(.up)
+            thumb(.down)
+        }
+        .padding(.horizontal, Space.xl)
+        .padding(.vertical, Space.lg)
+    }
 
     private var feedbackRow: some View {
         HStack(spacing: Space.xxl) {
@@ -255,7 +295,7 @@ struct LookCardView: View {
     @ViewBuilder
     private var highlightRule: some View {
         if card.style == .highlighted {
-            RoundedRectangle(cornerRadius: Self.cornerRadius + 0.5, style: .continuous)
+            RoundedRectangle(cornerRadius: cornerRadius + 0.5, style: .continuous)
                 .stroke(
                     LinearGradient(
                         stops: [
@@ -394,11 +434,9 @@ struct PriceRow: View {
         if let discount = price.discountLabel {
             Text(discount)
                 .glanceText(.priceOff)
-                // The comp fixes this at #958173, which is white at ~40%
-                // over its brown card. Taken as the token it keeps its
-                // relationship to whatever tint the card happens to carry —
-                // the feed also runs navy, olive and near-black.
-                .foregroundStyle(GlanceColor.textDisabled)
+                // One colour for the saving on every product card, whatever
+                // the card's own tint.
+                .foregroundStyle(GlanceColor.discount)
                 .fixedSize()
         }
     }
@@ -411,10 +449,10 @@ struct PricePill: View {
     var body: some View {
         HStack(spacing: 2) {
             Text(price.current)
-                .font(.custom(GlanceTypeface.interBold, size: 11))
+                .font(.custom(GlanceTypeface.manropeBold, size: 11))
                 .foregroundStyle(.black)
             Text(price.original)
-                .font(.custom(GlanceTypeface.interRegular, size: 10))
+                .font(.custom(GlanceTypeface.manropeRegular, size: 10))
                 .strikethrough()
                 .foregroundStyle(.black.opacity(0.4))
         }
@@ -427,134 +465,315 @@ struct PricePill: View {
 
 // MARK: - Tip
 
-/// Skin-tip speech bubble. `Bubble` in Figma.
-/// `Tips Cards - Change` (V7, 14:240) — a flat block of colour with a kicker, a
-/// single headline that carries the whole tip, and a `TELL ME MORE` row.
+/// `Tip Card` (2825:810) — one piece of advice on its category's colour: a
+/// kicker, the tip with the phrase it leans on set in bold, and a button named
+/// for where the tip leads — `Tell Me More`, `Show Products`, `Find
+/// Sunscreens`. The four categories each come in five shades (`TipCategory`).
 ///
-/// It replaced the speech bubble: no tail, no save button, no body copy. The
-/// detail the body used to spell out is what `TELL ME MORE` now opens.
+/// The comp's button is a 24pt pill with a 9pt label. It is the secondary
+/// Liquid Glass button here, at iOS's own measure — 32pt, a 12pt label — as on
+/// the filler card.
 struct TipCardView: View {
     let card: TipCard
-    var onMore: () -> Void = {}
-
-    /// 20, not the scale's 16 or 24: the revised card (14:240) tightens both
-    /// the corners and the rhythm between its three rows.
-    private let radius: CGFloat = 20
-    private let rowGap: CGFloat = 20
+    var onAction: () -> Void = {}
 
     var body: some View {
-        VStack(alignment: .leading, spacing: rowGap) {
+        VStack(alignment: .leading, spacing: Space.xl) {
             Text(card.tag.category)
                 .glanceText(.labelSmall)
+                .foregroundStyle(Color.white.opacity(0.7))
 
-            // The face of `headlineS` but none of its 26pt leading. SwiftUI
-            // adds one line-spacing value to every line, and the highlight
-            // runs a size up, so that target opened the bold lines out to
-            // ~28pt. Natural leading sets them at ~24, the comp's own figure
-            // for the emphasis, and tightens the plain lines with them.
+            // 20pt throughout, the bold phrase included, so every line sits
+            // at the same 24pt.
             headline
-                .font(GlanceTextStyle.headlineS.font)
+                .glanceText(.headlineM)
+                .foregroundStyle(GlanceColor.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Button(action: onMore) {
-                HStack(spacing: Space.sm) {
-                    Text("Tell me more", style: .labelBrand)
-                        .glanceText(.labelBrand)
-                    Spacer(minLength: Space.sm)
-                    // A 7.9×6.8 glyph centred in a 12pt box (8:1660), the two
-                    // sized separately so the stroke keeps its proportions.
-                    Image("ic-arrow-right")
-                        .resizable()
-                        .renderingMode(.template)
-                        .frame(width: 7.875, height: 6.75)
-                        .frame(width: 12, height: 12)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
+            SecondaryButton(title: card.action.title, padding: Space.md, showsArrow: true, action: onAction)
         }
-        // Both labels sit at the card's full ink in the revision; only the
-        // un-highlighted part of the headline steps back.
-        .foregroundStyle(card.ink)
         .padding(.horizontal, Space.lg)
         .padding(.vertical, Space.xl)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(card.tint, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
-        .glanceCardShadow()
+        .background(
+            card.category.fill(shade: card.shade),
+            in: RoundedRectangle(cornerRadius: Radius.xl, style: .continuous)
+        )
     }
 
-    /// The headline as one `Text`, with the highlighted phrase set heavier,
-    /// a size up and at full ink while the sentence around it drops to 70%.
+    /// The headline as one `Text`, with the highlighted phrase set in
+    /// ExtraBold at the sentence's own size. The component keeps the whole
+    /// sentence white, so only the weight carries the emphasis.
     ///
     /// One attributed string rather than `Text + Text`, which iOS 26
     /// deprecates — and one `Text` wraps as a single paragraph, so the phrase
     /// breaks across lines like any other words.
     private var headline: Text {
         var text = AttributedString(card.headline)
-
-        guard let phrase = card.highlight, let range = text.range(of: phrase) else {
-            // Nothing to lean on: the whole line at full strength, rather than
-            // a sentence dimmed to 70% for the sake of an emphasis that isn't there.
-            return Text(text)
+        if let phrase = card.highlight, let range = text.range(of: phrase) {
+            text[range].font = GlanceTextStyle.headlineEmphasis.font
         }
-
-        text.foregroundColor = card.ink.opacity(0.7)
-        text[range].font = GlanceTextStyle.headlineEmphasis.font
-        text[range].foregroundColor = card.ink
         return Text(text)
     }
 }
 
+/// Every palette of the `Tip Card` set (2825:810): four categories, five
+/// shades each.
+struct TipCardGallery: View {
+    private let categories: [(String, TipCategory)] = [
+        ("Beauty", .beauty), ("Fashion", .fashion), ("Gadget", .gadget), ("Health", .health)
+    ]
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: Space.xl) {
+                ForEach(categories, id: \.0) { name, category in
+                    VStack(alignment: .leading, spacing: Space.sm) {
+                        Text(name, style: .labelSection)
+                            .glanceText(.labelSection)
+                            .foregroundStyle(GlanceColor.textMuted)
+                        ScrollView(.horizontal) {
+                            HStack(alignment: .top, spacing: Space.md) {
+                                ForEach(1...5, id: \.self) { shade in
+                                    TipCardView(card: TipCard(
+                                        category: category,
+                                        shade: shade,
+                                        tag: MatchTag(category: "\(name) Tip"),
+                                        headline: "Bangalore's hard water dries skin out. A hydrating cleanser fixes that.",
+                                        highlight: "hard water dries skin out",
+                                        body: ""
+                                    ))
+                                    .frame(width: 170)
+                                }
+                            }
+                        }
+                        .scrollIndicators(.hidden)
+                    }
+                }
+            }
+            .padding(Space.xl)
+        }
+        .background(GlanceColor.bgBase)
+    }
+}
+
+#Preview("Tip card palettes") {
+    TipCardGallery()
+        .preferredColorScheme(.dark)
+}
+
 // MARK: - Prompt
 
-/// Mascot bubble inviting a conversation. `Card` in Figma.
-/// `Filler` (V7, 19:753) — the small card that invites a conversation: the
-/// mascot and a one-line prompt on Glance's own violet.
+/// The filler card (`Card`, 2831:1018) — Glance offering to talk. A near-black
+/// card lit faintly from its top-left corner, with a large sparkle
+/// watermarked into the other end, in one of three states:
+///
+/// - `compact` (`Start Chat`, 2831:1019): the mascot beside one line.
+/// - `stacked` (`Start Chat 2`, 3138:1867): the mascot over a longer line.
+/// - `resume` (`Continue Chat`, 2831:1017): picks an earlier thread back up.
+///
+/// The two that start a chat are one big button. `Continue Chat` has its own,
+/// a secondary Liquid Glass pill at iOS's own measure — 32pt, a 12pt label —
+/// where the comp's 24pt pill set its label at 9pt.
 struct PromptCardView: View {
     let card: PromptCard
     var action: () -> Void = {}
 
-    /// V7 `secondaryContainer`.
-    private static let fill = Color(hex: 0x342C55)
-    /// `rgba(96, 50, 255, 0.1)` — a violet edge just lifting it off the feed.
-    private static let edge = Color(hex: 0x6032FF, opacity: 0.1)
+    private static let fill = Color(hex: 0x050505)
+    private static let shape = RoundedRectangle(cornerRadius: Radius.xl, style: .continuous)
+
+    /// The edge's ramp: `#9375FE` at 10% at either end, white at 90% midway.
+    /// Figma blends between stops without premultiplying, which keeps the
+    /// flanks violet; SwiftUI premultiplies, which greys and brightens them.
+    /// Stops every eighth of the way, each mixed Figma's way, close the gap.
+    private static let edgeStops: [Gradient.Stop] = (0...8).map { step in
+        let location = Double(step) / 8
+        let mix = 1 - abs(location - 0.5) * 2
+        return Gradient.Stop(
+            color: Color(
+                red: (147 + 108 * mix) / 255,
+                green: (117 + 138 * mix) / 255,
+                blue: (254 + mix) / 255,
+                opacity: 0.1 + 0.8 * mix
+            ),
+            location: location
+        )
+    }
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
-
-        Button(action: action) {
-            HStack(spacing: Space.sm) {
-                mascot
-
-                // The comp sets the arrow inline as the prompt's last word.
-                Text(card.text + " →")
-                    .glanceText(.labelSmall)
-                    .foregroundStyle(GlanceColor.textPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .padding(Space.lg)
-            .background(Self.fill, in: shape)
-            .overlay { shape.strokeBorder(Self.edge, lineWidth: 1) }
-            .contentShape(shape)
+        switch card.style {
+        case .compact, .stacked:
+            Button(action: action) { surfaced }
+                .buttonStyle(FeedCardButtonStyle())
+        case .resume:
+            surfaced
         }
-        .buttonStyle(.plain)
     }
 
-    /// The exported mascot carries its own glow and a margin around it, so the
-    /// comp draws it at 131.88% of its 24pt box, nudged up and left, and lets
-    /// the box crop the spare canvas away (2:1011).
-    private var mascot: some View {
-        Color.clear
-            .frame(width: 24, height: 24)
-            .overlay(alignment: .topLeading) {
-                Image("ic-mascot-filler")
-                    .resizable()
-                    .frame(width: 24 * 1.3188, height: 24 * 1.3188)
-                    .offset(x: -24 * 0.1728, y: -24 * 0.2196)
-            }
-            .clipped()
+    private var surfaced: some View {
+        content
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background { surface }
+            .clipShape(Self.shape)
+            .overlay { edge }
+            .contentShape(Self.shape)
     }
+
+    @ViewBuilder
+    private var content: some View {
+        switch card.style {
+        case .compact:
+            // A single 24pt line, centred in the comp's 58pt card.
+            HStack(alignment: .top, spacing: Space.md) {
+                mascot
+                line
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 17)
+        case .stacked:
+            VStack(alignment: .leading, spacing: Space.md) {
+                mascot
+                line
+            }
+            .padding(20)
+        case .resume:
+            VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: Space.md) {
+                    mascot
+                    line
+                }
+                SecondaryButton(title: "Continue Chat", padding: Space.md, showsArrow: true, action: action)
+            }
+            .padding(20)
+        }
+    }
+
+    /// V7 `Title/Medium`.
+    private var line: some View {
+        Text(card.text)
+            .glanceText(.titleMedium)
+            .foregroundStyle(GlanceColor.textPrimary)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// The comp lays a copy under the mascot, blurred 12pt, for its glow.
+    private var mascot: some View {
+        FillerMascot(side: 24)
+            .background { FillerMascot(side: 24).blur(radius: 12) }
+    }
+
+    private var surface: some View {
+        Self.fill
+            .overlay { cornerLight }
+            .overlay(alignment: .bottomTrailing) {
+                Image("ic-filler-sparkle")
+                    .resizable()
+                    .frame(width: 114, height: 114)
+                    .opacity(0.07)
+                    .offset(sparkleOverhang)
+            }
+            .allowsHitTesting(false)
+    }
+
+    /// The card's 1pt edge: violet at 10%, flaring to white at 90% along a
+    /// band that crosses the top at 44% of the width and the bottom at 65% —
+    /// the comp's gradient stroke, read off its pixels, since the exported
+    /// code flattens it to the violet alone.
+    ///
+    /// Figma lays a gradient out in the card's unit square and stretches it
+    /// over the card, so the band shears with each state's height. Drawing it
+    /// in a square and scaling that to the card does the same; a plain
+    /// `LinearGradient` would keep its bands square to the points instead.
+    private var edge: some View {
+        GeometryReader { geometry in
+            LinearGradient(
+                stops: Self.edgeStops,
+                startPoint: UnitPoint(x: 0.018, y: 0.609),
+                endPoint: UnitPoint(x: 1.074, y: 0.391)
+            )
+            .frame(width: 100, height: 100)
+            .scaleEffect(x: geometry.size.width / 100, y: geometry.size.height / 100, anchor: .topLeading)
+        }
+        .mask { Self.shape.strokeBorder(lineWidth: 1) }
+        .allowsHitTesting(false)
+    }
+
+    /// `Ellipse 2465528` — a 159×29 bar of `#7F9BBD`, blurred by 50 and
+    /// centred just past the top-left corner.
+    ///
+    /// Drawn as the light that blur leaves behind rather than as a live blur:
+    /// a bar that thin under a σ50 Gaussian is an elliptical Gaussian itself,
+    /// σ64 across and σ50.5 down, peaking near 19%, which tracks the comp
+    /// within a few levels from the corner out to where it fades. SwiftUI's
+    /// `blur(radius: 50)` spread it far thinner, to barely a glimmer, and a
+    /// gradient costs nothing to scroll.
+    private var cornerLight: some View {
+        let sigma: CGFloat = 50.5
+        let reach = sigma * 3
+        let peak = 0.19
+        let tone = Color(hex: 0x7F9BBD)
+        // exp(−r²/2σ²) at every half σ out to 3σ.
+        let falloff: [Double] = [1, 0.8825, 0.6065, 0.3247, 0.1353, 0.0439, 0]
+
+        return Circle()
+            .fill(
+                RadialGradient(
+                    stops: falloff.enumerated().map { index, level in
+                        .init(color: tone.opacity(peak * level), location: Double(index) / Double(falloff.count - 1))
+                    },
+                    center: .center,
+                    startRadius: 0,
+                    endRadius: reach
+                )
+            )
+            .frame(width: reach * 2, height: reach * 2)
+            .scaleEffect(x: 64 / sigma, y: 1)
+            .position(x: 12.5, y: -15.5)
+    }
+
+    /// How far each state's sparkle runs past the card's bottom-trailing
+    /// corner, from the comp's own placements.
+    private var sparkleOverhang: CGSize {
+        switch card.style {
+        case .compact: CGSize(width: 21, height: 15)
+        case .stacked: CGSize(width: 25, height: 20)
+        case .resume: CGSize(width: 23, height: 14)
+        }
+    }
+}
+
+/// All three states of the filler `Card` set (2831:1018), at a column's width.
+struct PromptCardGallery: View {
+    private let topic = ChatTopic(source: "Glance AI", opening: "What's on your mind?")
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: Space.xl) {
+                variant("continue chat", PromptCard(style: .resume, text: "Did you get the perfect dress for your date? I have a few ideas for you", chat: topic))
+                variant("start chat", PromptCard(style: .compact, text: "Start a chat?", chat: topic))
+                variant("start chat 2", PromptCard(style: .stacked, text: "Want to chat about something?", chat: topic))
+            }
+            .frame(width: 185)
+            .padding(Space.xl)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background(GlanceColor.bgBase)
+    }
+
+    private func variant(_ name: String, _ card: PromptCard) -> some View {
+        VStack(alignment: .leading, spacing: Space.sm) {
+            Text(name, style: .labelSection)
+                .glanceText(.labelSection)
+                .foregroundStyle(GlanceColor.textMuted)
+            PromptCardView(card: card)
+        }
+    }
+}
+
+#Preview("Filler card states") {
+    PromptCardGallery()
+        .preferredColorScheme(.dark)
 }
 
 // MARK: - Brand
@@ -620,10 +839,9 @@ struct BrandCardView: View {
 /// a deep maroon panel: the photograph, a blurred gradient bar naming the story,
 /// the headline, and the three tools that act on it.
 ///
-/// It replaces the older image-and-headline card. Two departures from that
-/// library, which does not share this project's foundations: its Manrope
-/// headline is set in Inter Medium, the nearest bundled face, and the panel's
-/// own photograph and copy stay Glance's rather than the file's placeholders.
+/// It replaces the older image-and-headline card. One departure from that
+/// library, which does not share this project's foundations: the panel's own
+/// photograph and copy stay Glance's rather than the file's placeholders.
 /// `Trending News Card` (V7, 2:821) — a full-bleed photograph, the publisher
 /// pill set into its bottom edge, the story, and a row of tools.
 struct TrendCardView: View {
@@ -659,7 +877,7 @@ struct TrendCardView: View {
         }
         .padding(.bottom, Space.xl)
         .background(card.tint)
-        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.xl, style: .continuous))
     }
 
     private var photo: some View {
@@ -823,16 +1041,16 @@ struct RoutineCardView: View {
         .padding(.bottom, 40)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
-            RoundedRectangle(cornerRadius: 32, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.xl, style: .continuous)
                 .fill(card.background)
                 .overlay {
                     // `shadow(inset 0 0 34 rgba(255,255,255,.64))` — a soft rim of light,
                     // not a border: keep the stroke wide and heavily blurred.
-                    RoundedRectangle(cornerRadius: 32, style: .continuous)
+                    RoundedRectangle(cornerRadius: Radius.xl, style: .continuous)
                         .strokeBorder(card.glow.opacity(0.55), lineWidth: 26)
                         .blur(radius: 26)
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: Radius.xl, style: .continuous))
         }
         .overlay(alignment: .topTrailing) {
             Image(card.illustration)
@@ -843,7 +1061,7 @@ struct RoutineCardView: View {
                 .offset(x: card.illustrationInset.width)
                 .allowsHitTesting(false)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.xl, style: .continuous))
         // Over the illustration, as the comp has it.
         .overlay(alignment: .topTrailing) {
             WishlistButton(isOn: true, tone: .light).padding(Space.lg)
@@ -854,13 +1072,26 @@ struct RoutineCardView: View {
 // MARK: - Look card variants
 
 /// Every variant of the V7 `Look Card` set (16:240), side by side — the three
-/// authored styles, then a feedback card already answered each way.
+/// authored styles, then a feedback card already answered each way — and
+/// below them `Look Card Big` (29:881) in each of its three states.
 struct LookCardGallery: View {
     private let card = LookCard(
         image: "look-brunch",
         tag: MatchTag(category: "Fashion"),
         title: "Chocolate knit and barrel jeans for a slow Sunday brunch"
     )
+    private let bigCard = LookCard(
+        image: "look-airport",
+        tag: MatchTag(category: "Travel", match: "93% MATCH"),
+        title: "Cream knit and wide-leg trousers: an easy airport look for your next trip",
+        style: .feedback,
+        isFullWidth: true
+    )
+    private let bigVariants: [(String, LookCardView.Feedback)] = [
+        ("big", .none),
+        ("big · thumbs up", .up),
+        ("big · thumbs down", .down)
+    ]
 
     private let variants: [(String, LookCardStyle, LookCardView.Feedback)] = [
         ("w/o feedback", .plain, .none),
@@ -883,6 +1114,20 @@ struct LookCardGallery: View {
                 }
             }
             .padding(Space.xl)
+
+            VStack(alignment: .leading, spacing: Space.xl) {
+                ForEach(bigVariants, id: \.0) { name, feedback in
+                    VStack(alignment: .leading, spacing: Space.sm) {
+                        Text(name, style: .labelSection)
+                            .glanceText(.labelSection)
+                            .foregroundStyle(GlanceColor.textMuted)
+                        LookCardView(card: bigCard, feedback: feedback)
+                    }
+                    .id(name)
+                }
+            }
+            .padding(.horizontal, GlanceLayout.feedGutter)
+            .padding(.bottom, Space.xl)
         }
         .background(GlanceColor.bgBase)
     }

@@ -45,6 +45,8 @@ struct LookCard: Identifiable, Hashable {
     /// sitting in a column. Independent of `style`: the comp draws it plain,
     /// but a big card can also ask for feedback.
     var isFullWidth: Bool = false
+    /// Set when tapping the photograph should open the look's own page.
+    var detailID: String?
 }
 
 /// A price and what it was — `$30` beside a struck-out `$64`.
@@ -75,7 +77,7 @@ struct PriceTag: Hashable {
 }
 
 /// The `Rational` cards — a product shot fading into a solid card colour,
-/// with a serif claim and an Inter reason underneath. `Product Cards` in Figma:
+/// with a serif claim and a sans reason underneath. `Product Cards` in Figma:
 /// the image container is a strict 3:4.
 struct RationalCard: Identifiable, Hashable {
     let id = UUID()
@@ -99,11 +101,47 @@ struct RationalCard: Identifiable, Hashable {
     var productID: String?
 }
 
-/// The skin and beauty tips.
+/// The four palettes of the `Tip Card` set (2825:810), each in five shades
+/// running from deepest to lightest.
+enum TipCategory: Hashable {
+    case beauty, fashion, gadget, health
+
+    private var shades: [UInt32] {
+        switch self {
+        case .beauty: [0x5C3820, 0x6B4526, 0x7A5C42, 0x8A6640, 0x8A5C30]
+        case .fashion: [0x3A1F2B, 0x4E1F30, 0x5C2E3E, 0x6B2E44, 0x974267]
+        case .gadget: [0x162132, 0x1C2B3D, 0x24405C, 0x2F5478, 0x3B6894]
+        case .health: [0x124126, 0x234030, 0x2F5A3C, 0x3F7850, 0x4F9463]
+        }
+    }
+
+    /// `Shade=1` … `Shade=5`; anything outside that range is clamped to it.
+    func fill(shade: Int) -> Color {
+        Color(hex: shades[min(max(shade, 1), shades.count) - 1])
+    }
+}
+
+/// A tip card's call to action, named for what the tip leads to.
+enum TipAction: Hashable {
+    /// `Tell Me More` — Glance explains the tip.
+    case explain
+    /// `Show Products`, `Find Sunscreens` — what the tip suggests buying.
+    case shop(String)
+
+    var title: String {
+        switch self {
+        case .explain: "Tell Me More"
+        case .shop(let title): title
+        }
+    }
+}
+
+/// A tip: the advice, its kicker, and the phrase it leans on.
 struct TipCard: Identifiable, Hashable {
     let id = UUID()
-    var tint: Color
-    var ink: Color
+    /// Which palette the card is drawn in, and which of its five shades.
+    var category: TipCategory
+    var shade: Int
     /// `category` is the kicker, shown as written — "Skin tip".
     var tag: MatchTag
     /// The whole tip. The V7 card (8:1649) gives it no body to lean on.
@@ -112,16 +150,29 @@ struct TipCard: Identifiable, Hashable {
     /// than the rest (14:240). Must appear in `headline` verbatim; if it does
     /// not, the headline simply renders plain rather than half-styled.
     var highlight: String?
-    /// The supporting detail. Not drawn by the V7 card; kept for what
-    /// `TELL ME MORE` opens onto.
+    /// The supporting detail. Not drawn by the card.
     var body: String
+    /// What the tip's own page (4201:5148) suggests buying, and the replies
+    /// its composer offers.
+    var suggestions: [ShopProduct] = []
+    var chips: [String] = ["Find more", "Find similar", "Explain this"]
+    /// What the card's button offers.
+    var action: TipAction = .shop("Show Products")
     /// Which bottom corner the bubble tail points from.
     var tailOnLeading: Bool = false
 }
 
-/// A `TRAIN YOUR AI` card: one question Glance wants answered, the answers on
-/// offer, and what it says once one is picked. Three states in one card —
-/// question, the answer as given, then the acknowledgement.
+extension TipCard {
+    /// `Tell Me More`: the assistant opens on the tip's detail, offering the
+    /// tip's own replies.
+    var explanation: ChatTopic {
+        ChatTopic(source: tag.category, opening: body, options: chips)
+    }
+}
+
+/// A `TRAIN YOUR AI` card (`Signal Card`, 2831:1117): one question Glance
+/// wants answered and the answers on offer. Once one is picked the card turns
+/// to its second face and asks to keep going (`State=Start Chat`, 2831:1118).
 struct SignalCard: Identifiable, Hashable {
     let id = UUID()
     var label: String = "Train your AI"
@@ -129,8 +180,53 @@ struct SignalCard: Identifiable, Hashable {
     var avatar: String
     var question: String
     var options: [String]
-    /// Said back once an answer is picked; `%@` takes the answer.
+    /// What Glance says back about the answer — the first line of the chat
+    /// `Start Chat` opens. `%@` takes the answer.
     var acknowledgement: String = "Noted — %@. I'll fold that into what I show you."
+    /// The second face: the invitation, and the button that takes it up.
+    var invitation: String = "Want to tell me a little more about what you like?"
+    var invitationAction: String = "Start Chat"
+    /// What that chat goes on to ask, a question at a time.
+    var interview: [ChatPrompt] = SignalCard.likesInterview
+    /// Said once the interview runs out.
+    var closing: String = "That's plenty to go on. I'll fold it into your feed, so it should start looking more like you within a day or two."
+
+    /// What she likes, asked four ways — where she spends, what she won't
+    /// wear, who else she shops for, how far ahead she plans.
+    static let likesInterview: [ChatPrompt] = [
+        ChatPrompt(
+            text: "Now a few quick ones about what you like. First: when you're buying clothes, where are you happy to spend more?",
+            options: ["Outerwear", "Shoes & bags", "Everyday basics", "I hunt for deals"]
+        ),
+        ChatPrompt(
+            text: "Noted. And what would you never wear, whatever the occasion?",
+            options: ["Bodycon", "Neon brights", "Big logos", "Nothing's off limits"]
+        ),
+        ChatPrompt(
+            text: "Good. Who else do you shop for?",
+            options: ["Just me", "My partner", "Kids", "Gifts for family"]
+        ),
+        ChatPrompt(
+            text: "Last one — how far ahead do you decide an outfit?",
+            options: ["The night before", "Morning of", "Weeks ahead", "I improvise"]
+        )
+    ]
+
+    /// The conversation `Start Chat` opens: Glance takes the answer in, then
+    /// asks the interview one question at a time.
+    func chatTopic(answering answer: String) -> ChatTopic {
+        let acknowledged = String(format: acknowledgement, answer.lowercased())
+        guard let first = interview.first else {
+            return ChatTopic(source: label, opening: acknowledged)
+        }
+        return ChatTopic(
+            source: label,
+            opening: acknowledged + " " + first.text,
+            options: first.options,
+            followUps: Array(interview.dropFirst()),
+            closing: closing
+        )
+    }
 }
 
 /// An editorial poster that is itself a prompt — `Spoil my pet this month`,
@@ -145,10 +241,24 @@ struct PosterCard: Identifiable, Hashable {
     var prompt: String
 }
 
-/// The small mascot prompt bubbles that invite a conversation.
+/// A filler card (`Card`, 2831:1018) — Glance offering to talk, in one of the
+/// set's three states.
 struct PromptCard: Identifiable, Hashable {
+    enum Style: Hashable {
+        /// `State=Start Chat` (2831:1019) — the mascot beside a single line.
+        case compact
+        /// `State=Start Chat 2` (3138:1867) — the mascot over a longer line.
+        case stacked
+        /// `State=Continue Chat` (2831:1017) — picks an earlier conversation
+        /// back up, behind its own button.
+        case resume
+    }
+
     let id = UUID()
+    var style: Style
     var text: String
+    /// What opens: Glance's first line and the replies it offers.
+    var chat: ChatTopic
 }
 
 /// Brand store card. The campaign art now ships flattened — wordmark and scrim

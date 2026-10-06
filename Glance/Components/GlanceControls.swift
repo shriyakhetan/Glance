@@ -178,23 +178,48 @@ struct MascotView: View {
     }
 }
 
-/// Icon button for the pinned top bars, with a full 44pt touch target.
+/// The mascot as the `Filler` card (2:1011) and the composer's `Feed Ready`
+/// state (32:1626) draw it. The exported art carries its own glow and a margin
+/// around it, so the comps draw it at 131.88% of its box, nudged up and left,
+/// and let the box crop the spare canvas away.
+struct FillerMascot: View {
+    var side: CGFloat
+
+    var body: some View {
+        Color.clear
+            .frame(width: side, height: side)
+            .overlay(alignment: .topLeading) {
+                Image("ic-mascot-filler")
+                    .resizable()
+                    .frame(width: side * 1.3188, height: side * 1.3188)
+                    .offset(x: -side * 0.1728, y: -side * 0.2196)
+            }
+            .clipped()
+            .accessibilityHidden(true)
+    }
+}
+
+/// A pinned top bar's icon button: a 40pt Liquid Glass disc inside a full 44pt
+/// target, as iOS 26 draws a bar's buttons. Before iOS 26, the comp's bare glyph.
 ///
-/// `contentShape` is what makes that target real: an `Image` inside a larger
-/// `frame` only accepts taps on the glyph it actually draws, so a narrow icon
-/// like `chevron.left` ends up with an ~11pt tap area jammed against the screen
-/// edge — which reads as a button that simply does not work.
+/// `contentShape` is what makes the target real: an `Image` inside a larger
+/// `frame` only accepts taps on the glyph it actually draws, so a narrow arrow
+/// ends up with an ~11pt tap area jammed against the screen edge.
 struct BarIconButton: View {
-    let systemName: String
+    /// The glyph's asset and its own size in the comp.
+    let icon: String
+    var size: CGSize
     let label: String
-    var alignment: Alignment = .leading
     var action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: 20, weight: .regular))
-                .frame(width: 44, height: 44, alignment: alignment)
+            Image(icon)
+                .resizable()
+                .frame(width: size.width, height: size.height)
+                .frame(width: 40, height: 40)
+                .liquidGlass(in: Circle(), interactive: true) { $0 }
+                .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -202,25 +227,63 @@ struct BarIconButton: View {
     }
 }
 
-/// A section heading in the editorial serif voice.
+/// A section heading — V7 `Display/Small`, the editorial voice.
 struct SectionTitle: View {
     let title: String
+
     var body: some View {
         Text(title)
-            .glanceText(.displayL)
+            .glanceText(.displaySmall)
             .foregroundStyle(GlanceColor.textPrimary)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityAddTraits(.isHeader)
     }
 }
 
-/// Uppercase tracked label — `MY VISUAL SOURCES`, `WHAT GLANCE KNOWS`.
-struct SectionLabel: View {
+/// V7's secondary button, `CTA (New Project)`, at whichever of the comp's sizes
+/// a screen uses. On iOS 26 it is the system's secondary glass.
+struct SecondaryButton: View {
     let title: String
-    var ink: Color = GlanceColor.textMuted
+    var icon: String?
+    var iconSize: CGFloat = 12
+    var style: GlanceTextStyle = .labelMedium
+    var height: CGFloat = 32
+    var padding: CGFloat = Space.lg
+    var minWidth: CGFloat?
+    var fillsWidth = false
+    var hairline = Color.white.opacity(0.2)
+    /// The component's trailing arrow — `Continue Chat →`.
+    var showsArrow = false
+    var action: () -> Void
+
     var body: some View {
-        Text(title, style: .labelSection)
-            .glanceText(.labelSection)
-            .foregroundStyle(ink)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        Button(action: action) {
+            HStack(spacing: Space.sm) {
+                if let icon {
+                    Image(icon)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: iconSize, height: iconSize)
+                }
+                Text(title)
+                    .glanceText(style)
+                    .foregroundStyle(GlanceColor.textPrimary)
+                    .lineLimit(1)
+                if showsArrow {
+                    // The 8×7 glyph sits in the comp's 12pt icon box.
+                    Image("ic-arrow-forward")
+                        .resizable()
+                        .frame(width: 8, height: 7)
+                        .frame(width: 12, height: 12)
+                        .accessibilityHidden(true)
+                }
+            }
+            .padding(.horizontal, padding)
+            .frame(minWidth: minWidth, maxWidth: fillsWidth ? .infinity : nil)
+            .frame(height: height)
+            .secondaryGlass(in: Capsule(), hairline: hairline)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
 }

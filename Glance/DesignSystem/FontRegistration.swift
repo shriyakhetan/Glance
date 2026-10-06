@@ -1,7 +1,7 @@
 import CoreText
 import Foundation
 
-/// Registers the bundled Inter and Libre Caslon Text faces with CoreText at launch,
+/// Registers the bundled Manrope and Playfair Display faces with CoreText at launch,
 /// so the app does not depend on a hand-maintained `UIAppFonts` list.
 enum FontRegistration {
     private static var didRegister = false

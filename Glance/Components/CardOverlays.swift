@@ -38,7 +38,9 @@ struct WishlistButton: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(liked ? Color(hex: 0xFF3B30) : GlanceColor.textPrimary)
                 .frame(width: 32, height: 32)
-                .background { disc }
+                // Glass reads on any photograph by itself, so `tone` only
+                // decides the disc where glass isn't available.
+                .liquidGlass(in: Circle(), interactive: true) { $0.background { disc } }
                 .contentShape(Circle())
                 .scaleEffect(liked ? 1.06 : 1)
         }
@@ -73,7 +75,7 @@ struct TrendingTag: View {
     /// The arrow is the mark of a *live* read; a plain label goes without it.
     var showsTrend: Bool = true
 
-    private static let label = GlanceTextStyle(GlanceTypeface.interSemiBold, 10, tracking: 0.2)
+    private static let label = GlanceTextStyle(GlanceTypeface.manropeSemiBold, 10, tracking: 0.2)
 
     var body: some View {
         HStack(spacing: 2) {

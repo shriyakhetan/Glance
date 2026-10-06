@@ -1,107 +1,33 @@
 import SwiftUI
 
-/// The recurring surface on this screen: `bg/surface` inside a hairline border,
-/// lit from within by `Inner Glow/Strong` — `#FFFFFF2B` at radius 34.
-private struct ProfileSurface: ViewModifier {
-    var cornerRadius: CGFloat = Radius.xl
+/// The card every section on this screen sits on (2490:1671, 2490:1757):
+/// `surfaceContainerLow` inside an `outlineVariant` hairline, lit from within by
+/// `Inner Glow/Faint` — white at 8%, radius 10.
+private struct ProfileCard: ViewModifier {
+    var cornerRadius: CGFloat
 
     func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         content
             .background {
-                let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                // `shadow(inset 0 0 34 rgba(255,255,255,0.17))`
                 shape
-                    .fill(GlanceColor.bgSurface)
-                    .innerGlow(shape, radius: 34, color: Color.white.opacity(0.17))
+                    .fill(GlanceColor.bgBase)
+                    .innerGlow(shape, radius: 10, color: Color.white.opacity(0.08))
             }
-            .overlay {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
-            }
+            .overlay { shape.strokeBorder(GlanceColor.hairline, lineWidth: 1) }
     }
 }
 
 private extension View {
-    func profileSurface(cornerRadius: CGFloat = Radius.xl) -> some View {
-        modifier(ProfileSurface(cornerRadius: cornerRadius))
-    }
-}
-
-// MARK: - Visual sources
-
-struct PhotoStripSection: View {
-    let sources: [VisualSource]
-    let imageData: [UUID: Data]
-    var onPick: (VisualSource) -> Void
-
-    /// `Images` (338:213) lays five 82.5pt tiles at a 12pt gap — 460.5pt of row
-    /// inside a 354pt frame, so the strip scrolls rather than shrinking to fit.
-    private let tileWidth: CGFloat = 82.5
-    private let tileHeight: CGFloat = 100
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Space.lg) {
-            SectionLabel(title: "My Visual Sources")
-
-            ScrollView(.horizontal) {
-                HStack(alignment: .top, spacing: Space.md) {
-                    ForEach(sources) { source in
-                        Button { onPick(source) } label: {
-                            VStack(spacing: Space.xxs) {
-                                tile(source)
-                                if !source.isSpare {
-                                    Text(source.label)
-                                        .glanceText(.captionMedium)
-                                        .foregroundStyle(GlanceColor.textMuted)
-                                        .multilineTextAlignment(.center)
-                                }
-                            }
-                            .frame(width: tileWidth)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-            .scrollIndicators(.hidden)
-            .scrollClipDisabled()
-        }
-    }
-
-    @ViewBuilder
-    private func tile(_ source: VisualSource) -> some View {
-        let shape = RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-        if let data = imageData[source.id], let image = UIImage(data: data) {
-            // A picked photo has no art direction to honour, so just cover.
-            Image(uiImage: image)
-                .resizable()
-                .scaledToFill()
-                .frame(width: tileWidth, height: tileHeight)
-                .clipShape(shape)
-        } else if let name = source.image {
-            CroppedImage(name: name, crop: source.crop)
-                .frame(width: tileWidth, height: tileHeight)
-                .clipShape(shape)
-        } else {
-            shape
-                .fill(source.isSpare ? GlanceColor.bgSurfaceElevated : Color(hex: 0x111111, opacity: 0.2))
-                .frame(width: tileWidth, height: tileHeight)
-                .overlay {
-                    shape.strokeBorder(
-                        GlanceColor.borderDefault,
-                        style: StrokeStyle(lineWidth: 1, dash: [4, 4])
-                    )
-                }
-                .overlay {
-                    Text("+")
-                        .glanceText(.headingXLRegular)
-                        .foregroundStyle(GlanceColor.textDisabled)
-                }
-        }
+    func profileCard(cornerRadius: CGFloat = Radius.xl) -> some View {
+        modifier(ProfileCard(cornerRadius: cornerRadius))
     }
 }
 
 // MARK: - Vibe chips
 
+/// `vibe-chips` (2490:1661) — the aesthetics Glance reads in her. Tapping one
+/// marks it as hers.
 struct VibeChipsView: View {
     let chips: [VibeChip]
     @Binding var selected: Set<UUID>
@@ -111,35 +37,26 @@ struct VibeChipsView: View {
             ForEach(chips) { chip in
                 let isOn = selected.contains(chip.id)
                 Button {
-                    if chip.isAdd { return }
                     if isOn { selected.remove(chip.id) } else { selected.insert(chip.id) }
                 } label: {
                     Text(chip.text)
-                        .glanceText(.bodySMedium)
-                        .foregroundStyle(chip.isAdd ? GlanceColor.textTertiary : GlanceColor.textPrimary)
-                        .padding(.horizontal, chip.isAdd ? Space.lg : 20)
-                        .padding(.vertical, 13)
-                        .background {
-                            let shape = RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-                            if chip.isAdd {
-                                shape.fill(Color.black.opacity(0.1))
-                            } else {
-                                shape
-                                    .fill(GlanceColor.bgSurface)
-                                    .innerGlow(shape, radius: 34, color: Color.white.opacity(0.17))
-                            }
-                        }
+                        .glanceText(.labelMedium)
+                        .foregroundStyle(GlanceColor.textPrimary)
+                        .padding(.horizontal, Space.lg)
+                        .padding(.vertical, Space.md)
+                        .profileCard(cornerRadius: Radius.md)
                         .overlay {
                             RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-                                .strokeBorder(
-                                    isOn ? GlanceColor.accentPrimary : Color.white.opacity(0.1),
-                                    style: StrokeStyle(lineWidth: 1, dash: chip.isAdd ? [4, 4] : [])
-                                )
+                                .strokeBorder(GlanceColor.accentSecondary, lineWidth: 1)
+                                .opacity(isOn ? 1 : 0)
                         }
                 }
                 .buttonStyle(.plain)
+                .accessibilityAddTraits(isOn ? .isSelected : [])
             }
         }
+        .sensoryFeedback(.selection, trigger: selected)
+        .animation(.easeOut(duration: 0.15), value: selected)
     }
 }
 
@@ -181,101 +98,91 @@ struct FlowLayout: Layout {
 
 // MARK: - Personal analysis
 
+/// `Your Analysis` (2490:1668) — four 240pt cards in a row that pages card by
+/// card, the next one showing at the edge.
 struct AnalysisSection: View {
     let cards: [AnalysisCard]
     /// The card's call to action opens the assistant on that reading (731:701).
     var onAsk: (AnalysisCard) -> Void
 
-    /// The card's reading: Inter Regular 11 at a 1.4 line height (631:835).
-    private static let cardDetail = GlanceTextStyle(GlanceTypeface.interRegular, 11, lineHeight: 11 * 1.4)
-
     var body: some View {
         VStack(alignment: .leading, spacing: Space.lg) {
-            SectionLabel(title: "Personal Analysis")
+            SectionTitle(title: "Personal Analysis")
                 .padding(.horizontal, Space.xl)
 
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: Space.md) {
                     ForEach(cards) { card in
                         cardView(card)
-                            .frame(width: 240)
                     }
                 }
-                .padding(.horizontal, Space.xl)
+                .scrollTargetLayout()
             }
+            .contentMargins(.horizontal, Space.xl, for: .scrollContent)
+            .scrollTargetBehavior(.viewAligned)
             .scrollIndicators(.hidden)
         }
     }
 
-    /// 631:777 — a 240×263 card: an 80pt image row with the metric chip beside
-    /// it, the reading, and a per-card call to action.
+    /// 2490:1671 — what it reads, the portrait with its reading beside it, the
+    /// reading in the editorial voice, and a call to action.
     private func cardView(_ card: AnalysisCard) -> some View {
-        VStack(spacing: Space.xl) {
-            imageArea(card)
-
-            VStack(alignment: .leading, spacing: Space.sm) {
-                HStack(alignment: .firstTextBaseline, spacing: Space.sm) {
-                    Text(card.title)
-                        .font(.custom(GlanceTypeface.serifMedium, size: 12))
-                    Spacer(minLength: 0)
-                    Text(card.value)
-                        .font(.custom(GlanceTypeface.interSemiBold, size: 14))
-                }
-                .foregroundStyle(GlanceColor.textPrimary)
-
-                Text(card.detail)
-                    .glanceText(Self.cardDetail)
-                    .foregroundStyle(Color.white.opacity(0.5))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            // The comp gives this block 55pt — enough for the row plus two
-            // lines — and lets a longer reading push the card taller.
-            .frame(maxWidth: .infinity, minHeight: 55, alignment: .topLeading)
-
-            Button { onAsk(card) } label: {
-                Text(card.cta)
-                    .font(.custom(GlanceTypeface.interMedium, size: 11))
+        VStack(alignment: .leading, spacing: Space.xl) {
+            VStack(alignment: .leading, spacing: Space.md) {
+                Text(card.title)
+                    .glanceText(.labelMedium)
                     .foregroundStyle(GlanceColor.textPrimary)
-                    .padding(.horizontal, Space.lg)
-                    .padding(.vertical, Space.sm)
-                    .background(Capsule().fill(Color(hex: 0x2A2A2A)))
-                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+                imageArea(card)
             }
-            .buttonStyle(.plain)
+
+            VStack(alignment: .leading, spacing: Space.md) {
+                VStack(alignment: .leading, spacing: Space.sm) {
+                    Text(card.headline)
+                        .glanceText(.displaySmall)
+                        .foregroundStyle(GlanceColor.textPrimary)
+                    Text(card.detail)
+                        .glanceText(.bodyCaption)
+                        .foregroundStyle(GlanceColor.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                SecondaryButton(title: card.cta, padding: Space.md, hairline: Color.white.opacity(0.08)) {
+                    onAsk(card)
+                }
+            }
         }
         .padding(Space.xl)
-        // 263 is a floor, not a cap: an expanded card grows. Content stays top
-        // aligned, so the comp's ~3pt of slack falls below the pill.
-        .frame(minHeight: 263, alignment: .top)
-        .profileSurface()
+        // 302 is a floor, not a cap: a longer reading grows the card.
+        .frame(width: 240, alignment: .topLeading)
+        .frame(minHeight: 302, alignment: .top)
+        .profileCard()
     }
 
-    /// `Image Area` (192×80). The chip is painted *before* the portrait, as in
-    /// Figma, so the circle occludes the chip's leading end rather than the chip
+    /// `Image Area` (192×80). The tag is painted *before* the portrait, as in
+    /// Figma, so the circle occludes the tag's leading end rather than the tag
     /// covering her hair.
     private func imageArea(_ card: AnalysisCard) -> some View {
         ZStack(alignment: .topLeading) {
-            Color.clear.frame(height: 80)
+            Color.clear.frame(width: 192, height: 80)
 
-            metricChip(card)
-                // Pinned 59pt in and centred on the row.
+            metricTag(card)
+                // Pinned 59pt in and centred on the row, half a point low.
                 .frame(height: 80, alignment: .center)
+                .offset(y: 0.5)
                 .padding(.leading, 59)
 
             portrait(card)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func metricChip(_ card: AnalysisCard) -> some View {
-        VStack(alignment: .leading, spacing: Space.xxxs) {
-            Text(card.metricLabel.uppercased())
-                .font(.custom(GlanceTypeface.interSemiBold, size: 8))
-                .tracking(0.64)
+    private func metricTag(_ card: AnalysisCard) -> some View {
+        let shape = RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
+        return VStack(alignment: .leading, spacing: Space.xxxs) {
+            Text(card.metricLabel)
+                .glanceText(.labelSmall)
                 .opacity(0.5)
             Text(card.metricValue.uppercased())
-                .font(.custom(GlanceTypeface.interBold, size: 12))
-                .tracking(0.24)
+                .glanceText(.labelMedium)
         }
         .foregroundStyle(GlanceColor.textPrimary)
         .lineLimit(1)
@@ -284,18 +191,8 @@ struct AnalysisSection: View {
         .padding(.leading, 28)
         .padding(.trailing, Space.lg)
         .padding(.vertical, Space.sm)
-        .background {
-            RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
-                .fill(Color.white.opacity(0.12))
-                .overlay(
-                    // Figma says `0.5px solid white`, but at 1x that rasterises
-                    // to a whisper — the comp's edge is only ~10 levels above
-                    // the fill. Drawn at full white it becomes a hard line on a
-                    // 3x screen, so match the rendered value, not the nominal.
-                    RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5)
-                )
-        }
+        .background { shape.fill(LinearGradient.secondarySheen) }
+        .overlay { shape.strokeBorder(GlanceColor.hairline, lineWidth: 0.5) }
     }
 
     /// The 80pt ring: a 76pt circle inset 2pt, the ring artwork over it, and the
@@ -312,7 +209,6 @@ struct AnalysisSection: View {
                         }
                     }
                     .clipShape(Circle())
-                    .overlay(Circle().strokeBorder(Color(hex: 0x212121), lineWidth: 0.369))
                     .frame(width: 76, height: 76)
             }
             .overlay {
@@ -326,6 +222,7 @@ struct AnalysisSection: View {
             .overlay(alignment: .topLeading) {
                 sparkle.offset(x: -1, y: 49.27)
             }
+            .accessibilityHidden(true)
     }
 
     private var sparkle: some View {
@@ -335,211 +232,126 @@ struct AnalysisSection: View {
     }
 }
 
-// MARK: - Training banner
-
-struct TrainingBanner: View {
-    let prompt: GapPrompt
-    var onStart: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: Space.sm) {
-                MascotView(size: 48)
-                Text(prompt.title)
-                    .glanceText(.displayL)
-                    .foregroundStyle(GlanceColor.textPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(prompt.body)
-                    .glanceText(.bodyS)
-                    .foregroundStyle(GlanceColor.textMuted)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            Button(action: onStart) {
-                Text(prompt.cta)
-                    .glanceText(.bodySMedium)
-                    .foregroundStyle(Color(hex: prompt.ctaInk))
-                    .padding(.horizontal, Space.lg)
-                    .padding(.vertical, Space.sm)
-                    .background(Capsule().fill(Color(hex: prompt.ctaBackground)))
-                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, Space.xxl)
-        .padding(.vertical, 40)
-        .profileSurface()
-    }
-}
-
 // MARK: - Dimension cards
 
+/// `dim-card` (2490:1757) — one area Glance has read, as titled blocks of
+/// rows, meters and swatches.
 struct DimensionCardView: View {
     let card: DimensionCard
 
+    /// `YOUR GO TO` — what she has told Glance.
+    private static let yoursInk = Color(hex: 0xF6AB00)
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: Space.md) {
+        VStack(alignment: .leading, spacing: Space.md) {
+            VStack(alignment: .leading, spacing: card.headerSpacing) {
                 Text(card.title)
-                    .glanceText(.displayL)
+                    .glanceText(.displaySmall)
                     .foregroundStyle(GlanceColor.textPrimary)
+                    .accessibilityAddTraits(.isHeader)
                 Text(card.subtitle)
-                    .glanceText(.bodyS)
-                    .foregroundStyle(GlanceColor.textMuted)
+                    .glanceText(.bodyCaption)
+                    .foregroundStyle(GlanceColor.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.bottom, Space.lg)
 
             // Figma pads each block 16 inside its own frame and leaves 12
-            // between frames (689:1053 / 1076 / 1099), so consecutive blocks
-            // stand 44pt apart — not the 16 a single gap would give.
-            VStack(alignment: .leading, spacing: Space.md) {
-                ForEach(card.blocks) { block in
-                    blockView(block)
-                        .padding(.vertical, Space.lg)
-                }
+            // between frames, so consecutive blocks stand 44pt apart.
+            ForEach(card.blocks) { block in
+                blockView(block)
+                    .padding(.vertical, Space.lg)
             }
         }
-        .padding(.horizontal, Space.xxl)
-        .padding(.top, Space.xl)
-        // The last block already carries 16 of its own; with this the content
-        // clears the completeness bar on the bottom edge by 40.
-        .padding(.bottom, Space.xl)
+        .padding(Space.xl)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .profileSurface()
-        .overlay(alignment: .bottomLeading) {
-            // Completeness bar pinned to the card's bottom edge.
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Color.white.opacity(0.08))
-                    // A soft cap where the bar starts, as in the comp.
-                    Capsule()
-                        .fill(Color.white.opacity(0.1))
-                        .frame(width: 18)
-                        .blur(radius: 9.5)
-                    Capsule()
-                        .fill(Color(hex: card.progressColor))
-                        .frame(width: geometry.size.width * card.completeness)
-                }
-                .frame(height: 6)
-                .offset(y: geometry.size.height - 6)
-            }
-            .allowsHitTesting(false)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: Radius.xl, style: .continuous))
+        .profileCard()
     }
 
     @ViewBuilder
     private func blockView(_ block: DimensionBlock) -> some View {
         switch block {
-        case .facts(let title, let accessory, let rows):
+        case .facts(let title, let tag, let rows, let spacing):
             VStack(alignment: .leading, spacing: Space.lg) {
-                blockHeader(title, accessory)
-                VStack(spacing: Space.sm) {
+                blockHeader(title, tag)
+                VStack(spacing: spacing) {
                     ForEach(rows) { row in
                         HStack(alignment: .top) {
                             Text(row.label)
-                                .glanceText(.bodySLight)
-                                .foregroundStyle(GlanceColor.textTertiary)
+                                .glanceText(.bodyCaption)
+                                .foregroundStyle(GlanceColor.textSecondary)
                             Spacer(minLength: Space.md)
                             Text(row.value)
-                                .glanceText(.bodyS)
+                                .glanceText(.labelMedium)
                                 .foregroundStyle(GlanceColor.textPrimary)
                                 .multilineTextAlignment(.trailing)
                         }
+                        .accessibilityElement(children: .combine)
                     }
                 }
             }
 
-        case .meters(let title, let accessory, let rows):
-            // A block that still has unread rows breathes wider (689:1147);
-            // one that is fully read sits tighter (689:1080).
-            let hasPrompt = rows.contains(where: \.isPrompt)
+        case .meters(let title, let tag, let rows, let spacing, let rowInset):
             VStack(alignment: .leading, spacing: Space.lg) {
-                blockHeader(title, accessory)
-                // Wider than Figma's 12: at that pitch a track sits right under
-                // the next label and the rows read as one block of text.
-                VStack(spacing: 20) {
+                blockHeader(title, tag)
+                VStack(spacing: spacing) {
                     ForEach(rows) { row in
-                        if let reading = row.reading {
-                            VStack(spacing: Space.sm) {
-                                HStack {
-                                    Text(row.label)
-                                        .glanceText(.bodySLight)
-                                        .foregroundStyle(GlanceColor.textTertiary)
-                                    Spacer(minLength: Space.md)
-                                    Text(reading)
-                                        .glanceText(.bodyS)
-                                        .foregroundStyle(GlanceColor.textPrimary)
-                                }
-                                if let percent = row.percent {
-                                    GeometryReader { geometry in
-                                        ZStack(alignment: .leading) {
-                                            Capsule().fill(Color(hex: 0xF1F5F9, opacity: 0.1))
-                                            Capsule()
-                                                .fill(GlanceColor.textPrimary)
-                                                .frame(width: geometry.size.width * Double(percent) / 100)
-                                        }
-                                    }
-                                    .frame(height: 2)
-                                }
-                            }
-                            .padding(.bottom, hasPrompt ? Space.xxs : 0)
-                        } else {
+                        VStack(spacing: Space.sm) {
                             HStack {
                                 Text(row.label)
-                                    .glanceText(.bodySLight)
-                                    .foregroundStyle(GlanceColor.textTertiary)
+                                    .glanceText(.bodyCaption)
+                                    .foregroundStyle(GlanceColor.textSecondary)
                                 Spacer(minLength: Space.md)
-                                Button {} label: {
-                                    Text("+Add")
-                                        .font(.custom(GlanceTypeface.interMedium, size: 11))
-                                        .foregroundStyle(GlanceColor.textPrimary)
-                                        .padding(.horizontal, Space.xs)
-                                        .padding(.vertical, Space.xxs)
-                                        .background(Capsule().fill(Color.white.opacity(0.1)))
-                                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.04), lineWidth: 0.5))
-                                }
-                                .buttonStyle(.plain)
+                                Text(row.reading)
+                                    .glanceText(.labelMedium)
+                                    .foregroundStyle(GlanceColor.textPrimary)
                             }
+                            GeometryReader { geometry in
+                                ZStack(alignment: .leading) {
+                                    Capsule().fill(Color.white.opacity(0.12))
+                                    Capsule()
+                                        .fill(GlanceColor.textPrimary)
+                                        .frame(width: geometry.size.width * Double(row.percent) / 100)
+                                }
+                            }
+                            .frame(height: 2)
                         }
+                        .padding(.bottom, rowInset)
+                        .accessibilityElement(children: .combine)
                     }
                 }
             }
 
-        case .frequency(let title, let accessory, let rows):
-            OccasionFrequencyView(title: title, accessory: accessory, rows: rows)
-
-        case .palette(let title, let accessory, let swatches):
+        case .palette(let title, let tag, let swatches):
             VStack(alignment: .leading, spacing: Space.lg) {
-                blockHeader(title, accessory)
+                blockHeader(title, tag)
                 HStack(alignment: .top, spacing: Space.md) {
                     ForEach(swatches) { swatch in
                         VStack(spacing: Space.xs) {
-                            RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+                            RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
                                 .fill(Color(hex: swatch.color))
                                 .frame(width: 40, height: 40)
                             Text(swatch.name)
-                                .glanceText(.captionRegular)
+                                .glanceText(.labelSmall)
                                 .foregroundStyle(GlanceColor.textPrimary)
                         }
                         .frame(maxWidth: .infinity)
+                        .accessibilityElement(children: .combine)
                     }
                 }
             }
+            // The palette closes the card on 24 rather than 16 (2490:1808).
+            .padding(.bottom, Space.sm)
         }
     }
 
-    private func blockHeader(_ title: String, _ accessory: String) -> some View {
+    private func blockHeader(_ title: String, _ tag: BlockTag) -> some View {
         HStack {
-            Text(title, style: .labelSection)
-                .glanceText(.labelSection)
+            Text(title.uppercased())
                 .foregroundStyle(GlanceColor.textPrimary)
             Spacer(minLength: Space.md)
-            Text(accessory, style: .labelSection)
-                .glanceText(.labelSection)
-                .foregroundStyle(GlanceColor.textAccent)
+            Text(tag.text.uppercased())
+                .foregroundStyle(tag.source == .yours ? Self.yoursInk : GlanceColor.accentSecondary)
         }
+        .glanceText(.labelMedium)
     }
 }

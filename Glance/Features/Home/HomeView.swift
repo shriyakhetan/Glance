@@ -12,7 +12,7 @@ struct HomeView: View {
 
     /// Read from `GlanceLayout`, which also uses them to work out how many
     /// columns fit and how wide each is — so the spacing drawn here and the
-    /// spacing those sums assume can't drift apart. 8 / 185 / 16 / 185 / 8 on a
+    /// spacing those sums assume can't drift apart. 8 / 189 / 8 / 189 / 8 on a
     /// 402pt phone.
     private let gutter = GlanceLayout.feedGutter
     private let columnGap = GlanceLayout.feedColumnGap
@@ -28,6 +28,11 @@ struct HomeView: View {
     private let headerInset: CGFloat = Space.xl
     private let headerGap: CGFloat = Space.sm + Space.xl
 
+    /// Where the composer is in the journey. This feed is the onboarded one —
+    /// it already reads her style — so it leads with My Looks; `--askStage`
+    /// starts it anywhere else.
+    @State private var askStage = DebugLaunch.askStage.flatMap(AskGlanceStage.init(debugName:)) ?? .afterOnboarding
+
     init(repository: FeedRepository = MockFeedRepository()) {
         self.header = repository.header()
         self.blocks = repository.blocks()
@@ -40,9 +45,20 @@ struct HomeView: View {
             feed
                 .overlay(alignment: .bottom) {
                     AskGlanceBar(
+                        stage: askStage,
                         onAsk: { ask("Glance AI", "Ask me anything about your style.") },
-                        onAttach: { ask("Add an image", "Add a photo and I'll read it for style cues.") }
+                        onAttach: { ask("Add an image", "Add a photo and I'll read it for style cues.") },
+                        onMyLooks: { ask("My Looks", "The looks I've put together for you.") },
+                        // Refreshing takes the new looks in; from here on the
+                        // composer is the onboarded one.
+                        onRefresh: { askStage = .afterOnboarding }
                     )
+                }
+                // The first looks land when the countdown does.
+                .task(id: askStage) {
+                    guard case .firstGeneration(let until) = askStage else { return }
+                    try? await Task.sleep(for: .seconds(max(0, until.timeIntervalSinceNow)))
+                    if !Task.isCancelled { askStage = .feedIsReady }
                 }
                 // The bar is measured from the physical bottom edge, so both the
                 // feed and its overlay run past the home indicator. The feed's
@@ -56,6 +72,14 @@ struct HomeView: View {
                 case .product(let id):
                     ProductView(product: ProductRepository.shared.product(id: id))
                         .navigationTransition(.zoom(sourceID: Route.product(id), in: transition))
+                case .chat(let topic):
+                    GlanceChatView(topic: topic)
+                case .look(let id):
+                    LookDetailView(look: LookRepository.shared.look(id: id))
+                        .navigationTransition(.zoom(sourceID: Route.look(id), in: transition))
+                case .tip(let card):
+                    TipDetailView(tip: card)
+                        .navigationTransition(.zoom(sourceID: Route.tip(card), in: transition))
                 }
             }
         }
@@ -113,6 +137,8 @@ struct HomeView: View {
                 didOpenDebugRoute = true
                 if DebugLaunch.route == "profile" { path.append(Route.profile) }
                 if DebugLaunch.route == "product" { path.append(Route.product(Product.unifringePolo.id)) }
+                if DebugLaunch.route == "look" { path.append(Route.look(LookDetail.airport.id)) }
+                if DebugLaunch.route == "tip", let tip = firstTip { path.append(Route.tip(tip)) }
             }
         }
         .scrollIndicators(.hidden)
@@ -162,6 +188,14 @@ struct HomeView: View {
 
     private func ask(_ title: String, _ prompt: String) {
         askSheet = AskGlanceContext(title: title, prompt: prompt)
+    }
+
+    /// The feed's first tip, for `--route tip`.
+    private var firstTip: TipCard? {
+        for item in FeedLayout.items(for: blocks) {
+            if case .tip(let tip) = item { return tip }
+        }
+        return nil
     }
 
     private var headerView: some View {
@@ -256,8 +290,20 @@ struct HomeView: View {
     private func view(for item: FeedItem) -> some View {
         switch item {
         case .look(let card):
-            LookCardView(card: card) {
-                ask("Give feedback", "What didn't work for you about this look?")
+            if let detailID = card.detailID {
+                // The card zooms up into the look's page; its thumbs and
+                // heart are buttons of their own and keep working in place.
+                Button { path.append(Route.look(detailID)) } label: {
+                    LookCardView(card: card) {
+                        ask("Give feedback", "What didn't work for you about this look?")
+                    }
+                }
+                .buttonStyle(FeedCardButtonStyle())
+                .matchedTransitionSource(id: Route.look(detailID), in: transition)
+            } else {
+                LookCardView(card: card) {
+                    ask("Give feedback", "What didn't work for you about this look?")
+                }
             }
         case .rational(let card):
             if let productID = card.productID {
@@ -270,12 +316,21 @@ struct HomeView: View {
                 RationalCardView(card: card)
             }
         case .tip(let card):
-            TipCardView(card: card) {
-                ask("Glance AI", card.headline)
+            // The card opens the tip's page, which it zooms up into; its
+            // button goes where it says — an explanation, or the products.
+            Button { path.append(Route.tip(card)) } label: {
+                TipCardView(card: card) {
+                    switch card.action {
+                    case .explain: path.append(Route.chat(card.explanation))
+                    case .shop: path.append(Route.tip(card))
+                    }
+                }
             }
+            .buttonStyle(FeedCardButtonStyle())
+            .matchedTransitionSource(id: Route.tip(card), in: transition)
         case .prompt(let card):
             PromptCardView(card: card) {
-                ask("Glance AI", card.text)
+                path.append(Route.chat(card.chat))
             }
         case .brand(let card):
             BrandCardView(card: card)
@@ -289,7 +344,9 @@ struct HomeView: View {
         case .routine(let card):
             RoutineCardView(card: card)
         case .signal(let card):
-            SignalCardView(card: card)
+            SignalCardView(card: card) { answer in
+                path.append(Route.chat(card.chatTopic(answering: answer)))
+            }
         case .poster(let card):
             PosterCardView(card: card) {
                 ask("Glance AI", card.prompt)
@@ -310,6 +367,12 @@ struct FeedCardButtonStyle: ButtonStyle {
 enum Route: Hashable {
     case profile
     case product(String)
+    /// The assistant (731:701), opened already talking about something.
+    case chat(ChatTopic)
+    /// A look's own page (6215:7530).
+    case look(String)
+    /// A tip's own page (4201:5148).
+    case tip(TipCard)
 }
 
 #Preview {

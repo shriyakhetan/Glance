@@ -22,9 +22,9 @@ struct GlanceChatView: View {
 
     private static let bottomAnchor = "chat-bottom"
 
-    private static let reply = GlanceTextStyle(GlanceTypeface.interMedium, 14, lineHeight: 20)
-    private static let chip = GlanceTextStyle(GlanceTypeface.interMedium, 12, lineHeight: 18, tracking: 0.12)
-    private static let placeholder = GlanceTextStyle(GlanceTypeface.interRegular, 12, lineHeight: 18.7)
+    private static let reply = GlanceTextStyle(GlanceTypeface.manropeMedium, 14, lineHeight: 20)
+    private static let chip = GlanceTextStyle(GlanceTypeface.manropeMedium, 12, lineHeight: 18, tracking: 0.12)
+    private static let placeholder = GlanceTextStyle(GlanceTypeface.manropeRegular, 12, lineHeight: 18.7)
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -64,7 +64,9 @@ struct GlanceChatView: View {
         .safeAreaInset(edge: .top, spacing: 0) { header }
         .background(Color.black.ignoresSafeArea())
         .overlay(alignment: .bottom) { composer }
-        .ignoresSafeArea(edges: .bottom)
+        // Past the home indicator only. Ignoring the keyboard's safe area too
+        // left the composer pinned behind the keyboard while typing.
+        .ignoresSafeArea(.container, edges: .bottom)
         .navigationBarBackButtonHidden()
         .toolbar(.hidden, for: .navigationBar)
         .task {
@@ -205,18 +207,28 @@ struct GlanceChatView: View {
         }
         .padding(.horizontal, Space.md)
         .frame(height: 44)
-        .background(Capsule().fill(Color(hex: 0x111111, opacity: 0.6)))
-        .overlay(Capsule().strokeBorder(Color.white.opacity(0.3), lineWidth: 0.936))
+        .liquidGlass(in: Capsule(), interactive: true) { field in
+            field
+                .background(Capsule().fill(Color(hex: 0x111111, opacity: 0.6)))
+                .overlay(Capsule().strokeBorder(Color.white.opacity(0.3), lineWidth: 0.936))
+        }
         .padding(.horizontal, Space.xl)
         .padding(.bottom, Space.xxl)
         .glanceContentColumn()
         // The comp grades the bottom to black over a blur, the same treatment
         // the feed's composer sits on.
         .background {
-            EdgeScrim(edge: .bottom)
+            EdgeScrim(edge: .bottom, tint: Self.scrimTint)
                 .padding(.top, -72)
                 .ignoresSafeArea()
         }
+    }
+
+    /// Solid black under the glass would leave it nothing to refract, so with
+    /// Liquid Glass the ramp eases off, as it does under the feed's composer.
+    private static var scrimTint: Double {
+        if #available(iOS 26.0, *) { return 0.5 }
+        return 1
     }
 
     // MARK: - Replies

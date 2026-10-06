@@ -1,83 +1,81 @@
 import SwiftUI
 
+/// The product page — `T-Shirt Product - L2 - New 01` (V7, 32:2523).
 struct ProductView: View {
     let product: Product
 
     @Environment(\.dismiss) private var dismiss
-    @State private var selectedSize: String
-    @State private var selectedColor: UUID?
     @State private var isWishlisted = false
-    @State private var imageIndex = 0
-    @State private var reviewIndex = 0
-    @State private var priceRange: PriceRange = .threeMonths
+    /// Nothing is picked until she picks it; the recommendation says which.
+    @State private var selectedSize: String?
+    @State private var selectedColor: UUID?
     @State private var askSheet: AskGlanceContext?
-
-    private let gutter = Space.xl
-
-    init(product: Product) {
-        self.product = product
-        _selectedSize = State(initialValue: product.sizeGuess.size)
-        _selectedColor = State(initialValue: product.colors.first?.id)
-    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
             ScrollViewReader { proxy in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    ProductGallerySection(
-                        product: product,
-                        imageIndex: $imageIndex,
-                        isWishlisted: $isWishlisted,
-                        onTryOn: { ask("Try On", product.name) },
-                        onBuy: { ask("Buy on Amazon", product.name) }
-                    )
+                ScrollView {
+                    // The comp spaces its sections 40pt apart; each sets its own
+                    // 24pt gutter, so the gallery can run to the edge.
+                    VStack(alignment: .leading, spacing: 40) {
+                        ProductHeroSection(
+                            product: product,
+                            isWishlisted: $isWishlisted,
+                            onBuy: { ask("Buy on Amazon", product.name) },
+                            onStyleMe: { ask("Style me", product.name) }
+                        )
+                        .id(0)
 
-                    section(spacing: Space.sm) {
-                        SectionTitle(title: product.matchTitle)
-                        Text(product.matchBody)
-                            .glanceText(.bodyM)
-                            .foregroundStyle(GlanceColor.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
+                        ProductMatchSection(match: product.match).id(1)
+
+                        SizeSection(
+                            guess: product.sizeGuess,
+                            sizes: product.availableSizes,
+                            selected: $selectedSize,
+                            onSizeChart: { ask("Size chart", product.name) },
+                            onUpdateSize: { ask("Update size", product.name) }
+                        )
+                        .id(2)
+
+                        ColourSection(colors: product.colors, more: product.moreColors, selected: $selectedColor).id(3)
+
+                        PriceTrendSection(trend: product.priceTrend) {
+                            ask(product.priceTrend.buyLabel, product.name)
+                        }
+                        .id(4)
+
+                        DeliverySection(delivery: product.delivery).id(5)
+
+                        FitQuestionCard(question: product.fitQuestion).id(6)
+
+                        WearBoardsSection(
+                            outfits: product.outfits,
+                            onStyle: { ask("Style me", $0.title) },
+                            onSwap: { ask("Swap a piece", $0.title) },
+                            onAdd: { ask("Add a piece", $0.title) }
+                        )
+                        .id(7)
+
+                        MoreLikeThisSection(
+                            items: product.moreLikeThis,
+                            onSelect: { ask($0.title, $0.brand ?? product.name) },
+                            onFindSimilar: { ask("Find similar", product.name) }
+                        )
+                        .id(8)
                     }
-                    .id(1)
-
-                    ReviewsSection(product: product, reviewIndex: $reviewIndex).id(2)
-
-                    AISummarySection(summary: product.aiSummary).id(3)
-
-                    SizeGuessSection(product: product, selectedSize: $selectedSize).id(4)
-
-                    ColorsSection(product: product, selectedColor: $selectedColor).id(5)
-
-                    PriceTrendSection(product: product, range: $priceRange).id(6)
-
-                    WhyItWorksSection(items: product.whyItWorks).id(7)
-
-                    DeliverySection(delivery: product.delivery).id(8)
-
-                    WearSuggestionSection(occasion: product.occasion) {
-                        ask("Try On", product.occasion.title)
-                    }
-                    .id(9)
-
-                    AlsoWorksForSection(items: product.alsoWorksFor) { item in
-                        ask("Try On", item.title)
-                    }
-                    .id(10)
+                    .padding(.top, Space.xl)
+                    // Clear the composer: chips, pill and the gap beneath them.
+                    .padding(.bottom, AskGlanceBarMetrics.reservedHeightWithChips + Space.lg)
+                    .glanceContentColumn()
                 }
-                // Clear the composer: chips + pill + the gap beneath them.
-                .padding(.bottom, AskGlanceBarMetrics.reservedHeight + 56)
-                .glanceContentColumn()
-            }
-            .scrollIndicators(.hidden)
-            // Pinned, and the scroll view still draws behind it — so content
-            // blurs through the material as it passes underneath.
-            .safeAreaInset(edge: .top, spacing: 0) { topBar }
-            .task {
-                try? await Task.sleep(for: .milliseconds(500))
-                if let target = DebugLaunch.scrollTo { proxy.scrollTo(target, anchor: .top) }
-            }
+                .scrollIndicators(.hidden)
+                // Pinned, and the scroll view still draws behind it — so content
+                // blurs through as it passes underneath.
+                .safeAreaInset(edge: .top, spacing: 0) { topBar }
+                .task {
+                    try? await Task.sleep(for: .milliseconds(500))
+                    if let target = DebugLaunch.scrollTo { proxy.scrollTo(target, anchor: .top) }
+                }
             }
 
             bottomBar
@@ -95,63 +93,26 @@ struct ProductView: View {
         .sheet(item: $askSheet) { AskGlanceView(context: $0) }
     }
 
+    /// `Top` (32:3699) — back, the wordmark, recently viewed.
     private var topBar: some View {
-        HStack(spacing: 0) {
-            BarIconButton(systemName: "arrow.left", label: "Back") { dismiss() }
+        GlanceLogoBar(onBack: { dismiss() })
+    }
 
-            Spacer(minLength: 0)
 
-            HStack(spacing: 1) {
-                Text("glance")
-                    .glanceText(.headingL)
-                Image(systemName: "sparkles")
-                    .font(.system(size: 11))
-            }
-            .accessibilityElement()
-            .accessibilityLabel("Glance")
-
-            Spacer(minLength: 0)
-
-            BarIconButton(
-                systemName: "clock.arrow.circlepath",
-                label: "Recently viewed",
-                alignment: .trailing
-            ) {}
+    /// The composer in its `on L2` state: this product's prompts ride above the
+    /// pill as glass chips.
+    private var bottomBar: some View {
+        AskGlanceBar(
+            stage: .onL2,
+            onAsk: { ask("Glance AI", product.name) },
+            onAttach: { ask("Add an image", product.name) }
+        ) {
+            AskGlanceChips(titles: product.suggestionChips) { ask($0, product.name) }
         }
-        .foregroundStyle(GlanceColor.textPrimary)
-        .padding(.horizontal, Space.lg)
-        // Bar items track the content column; the band behind stays full width.
-        .glanceContentColumn()
-        .fadingBarBackground()
     }
 
     private func ask(_ title: String, _ prompt: String) {
         askSheet = AskGlanceContext(title: title, prompt: prompt)
-    }
-
-    private func section<Content: View>(spacing: CGFloat = Space.md, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: spacing, content: content)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(gutter)
-    }
-
-    /// The same composer as the home feed, with this screen's suggestion chips
-    /// riding above the pill.
-    private var bottomBar: some View {
-        AskGlanceBar(
-            onAsk: { ask("Glance AI", product.name) },
-            onAttach: { ask("Add an image", product.name) }
-        ) {
-            ScrollView(.horizontal) {
-                HStack(spacing: Space.sm) {
-                    ForEach(product.suggestionChips, id: \.self) { chip in
-                        GlanceChip(title: chip) { ask(chip, product.name) }
-                    }
-                }
-                .padding(.horizontal, gutter)
-            }
-            .scrollIndicators(.hidden)
-        }
     }
 }
 

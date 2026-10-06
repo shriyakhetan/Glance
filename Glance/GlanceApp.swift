@@ -11,6 +11,12 @@ struct GlanceApp: App {
             Group {
                 if DebugLaunch.gallery == "look" {
                     LookCardGallery()
+                } else if DebugLaunch.gallery == "signal" {
+                    SignalCardGallery()
+                } else if DebugLaunch.gallery == "filler" {
+                    PromptCardGallery()
+                } else if DebugLaunch.gallery == "tips" {
+                    TipCardGallery()
                 } else {
                     HomeView()
                 }

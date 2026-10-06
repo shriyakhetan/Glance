@@ -1,12 +1,12 @@
 import SwiftUI
 
-/// The `Glow` layer behind the profile hero (338:174).
+/// The `Glow` layer behind the profile hero (338:174, kept by D0 2490:1619).
 ///
 /// It is not a purple gradient — it is a **dark arch lit only at its rim**. In
 /// Figma: a 640pt-wide rectangle whose top corners are rounded 360 (clamped to
-/// 320, half the width, so the crown is a true semicircle), filled `#0E0A19`,
-/// with one outer shadow above the crown and three inner shadows spilling purple
-/// down the inside of the top edge.
+/// 320, half the width, so the crown is a true semicircle), filled black like
+/// the page around it, with one outer shadow above the crown and three inner
+/// shadows spilling purple down the inside of the top edge.
 ///
 /// Sampling the comp shows the inner falloff is purely a function of distance
 /// from the crown circle's centre — the same radius gives the same colour no
@@ -14,17 +14,22 @@ import SwiftUI
 /// shadows with blurred strokes, one `RadialGradient` centred on that circle
 /// reproduces it, with stops read off the comp.
 ///
-/// The comp is a still. The only motion is the scroll response — the layer dims
-/// and drifts up as the page moves — plus a slow breath in the rim. It animates
-/// opacity, offset and scale, which the render server handles on its own, so the
+/// Only the crown is drawn. Below its rim band the arch is black on black, so
+/// there is nothing to see — and an arch cut off short would trail its halo
+/// along the cut, so the layer is masked to the band and the space above it.
+///
+/// The comp is a still. The only motion is the scroll response — the layer
+/// dims as the hero scrolls away — plus a slow breath in the rim. It animates
+/// opacity and scale, which the render server handles on its own, so the
 /// expensive blurred layers are never redrawn.
 struct ArchGlow: View {
     /// The comp's 640pt arch. Wider than the screen on purpose: only the crown
     /// shows, and the straight sides fall outside the viewport.
     static let width: CGFloat = 640
+    /// The crown and the band its rim light is painted into.
+    static let height: CGFloat = 400
 
-    /// 0 at rest, growing as the page scrolls away. Dims the glow and lets it
-    /// drift up behind the content.
+    /// 0 at rest, growing as the page scrolls away. Dims the glow.
     var scroll: CGFloat = 0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -35,7 +40,9 @@ struct ArchGlow: View {
     /// Height of the band the rim glow is painted into. The glow dies well
     /// inside this, and bounding it keeps the gradient from repeating its final
     /// colour across the arch's deep interior.
-    private let glowBand: CGFloat = 400
+    private let glowBand: CGFloat = ArchGlow.height
+    /// Room above the crown for the halo.
+    private let haloRoom: CGFloat = 80
 
     private let rim = Color(hex: 0xBE8CFF)
 
@@ -58,14 +65,21 @@ struct ArchGlow: View {
 
     var body: some View {
         shape
-            .fill(Color(hex: 0x0E0A19))
+            .fill(Color.black)
             // `shadow(0 -5px 50px -10px #b786ff)` — halo spilling above the crown.
             .shadow(color: Color(hex: 0xB786FF, opacity: 0.5 * (breathing ? 1 : 0.72)), radius: 18, x: 0, y: -5)
             .overlay(alignment: .top) { spill }
+            // The band, plus the halo's room above the crown. Below it the
+            // shadow would outline the arch's bottom edge.
+            .mask(alignment: .top) {
+                Rectangle()
+                    .padding(.top, -haloRoom)
+            }
+            // Dimmed as one layer. Faded piece by piece, the black fill turns
+            // translucent over its own halo, and the purple shadow beneath it
+            // washes the whole arch.
+            .compositingGroup()
             .opacity(scrollDim)
-            // A touch of parallax: the glow lags the content rather than being
-            // pinned to the screen.
-            .offset(y: -scroll * 0.08)
             .allowsHitTesting(false)
             .onAppear(perform: start)
     }
@@ -90,6 +104,20 @@ struct ArchGlow: View {
                 )
             )
             .frame(height: glowBand)
+            // Below the crown's centre the gradient only climbs again toward
+            // the arch's straight sides, so it is let go over the band's last
+            // 80pt. Cut off square, the band's edge shows against the black as
+            // a seam — faintly at a phone's edges, plainly on a wider canvas.
+            .mask {
+                LinearGradient(
+                    stops: [
+                        .init(color: .black, location: crown / glowBand),
+                        .init(color: .clear, location: 1)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
             .opacity(breathing ? 1 : 0.86)
             // Scaling from the crown's own centre keeps the arc's edge pinned
             // and moves only the light inside it.
